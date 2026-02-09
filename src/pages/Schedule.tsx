@@ -229,44 +229,15 @@ export default function Schedule() {
 
     return (
         <div className="space-y-12 pb-20">
-            {/* Header section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3 tracking-tight">
-                        <CalendarDays className="h-8 w-8 text-blue-600" />
-                        Ders Programı
-                    </h1>
-                    <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2 font-medium">
-                        Haftalık derslerini planla, hiçbirini kaçırma.
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                    <Button
-                        variant="secondary"
-                        onClick={downloadTemplate}
-                        className="flex-1 md:flex-none"
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        Şablon İndir
-                    </Button>
-                    <label className="flex-1 md:flex-none cursor-pointer">
-                        <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={handleCSVUpload}
-                            disabled={uploadLoading}
-                        />
-                        <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full">
-                            <Upload className="h-4 w-4 mr-2" />
-                            {uploadLoading ? 'Yükleniyor...' : 'CSV Yükle'}
-                        </div>
-                    </label>
-                    <Button onClick={() => setIsAdding(true)} className="flex-1 md:flex-none shadow-lg shadow-blue-500/20">
-                        <Plus className="h-5 w-5 mr-2" />
-                        Ders Ekle
-                    </Button>
-                </div>
+            {/* Header section - Title only, buttons moved to bottom */}
+            <div>
+                <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3 tracking-tight">
+                    <CalendarDays className="h-8 w-8 text-blue-600" />
+                    Ders Programı
+                </h1>
+                <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-2 font-medium">
+                    Haftalık derslerini planla, hiçbirini kaçırma.
+                </p>
             </div>
 
             {/* Add Schedule Form */}
@@ -345,7 +316,7 @@ export default function Schedule() {
                             <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tighter">{day.name}</h3>
                         </div>
 
-                        <div className="space-y-3 min-h-[300px]">
+                        <div className="space-y-3 md:min-h-[300px]">
                             {schedule?.filter((s: any) => s.day_of_week === day.id).map((item: any) => (
                                 <Card key={item.id} className="p-4 relative group hover:ring-2 ring-blue-500/20 transition-all">
                                     <button
@@ -376,7 +347,7 @@ export default function Schedule() {
                                 </Card>
                             ))}
                             {schedule?.filter((s: any) => s.day_of_week === day.id).length === 0 && (
-                                <div className="h-full flex items-center justify-center p-8 border-2 border-dashed border-gray-50 dark:border-gray-900 rounded-3xl opacity-30 grayscale">
+                                <div className="hidden md:flex h-full items-center justify-center p-8 border-2 border-dashed border-gray-50 dark:border-gray-900 rounded-3xl opacity-30 grayscale">
                                     <BookOpen className="h-6 w-6 text-gray-400" />
                                 </div>
                             )}
@@ -486,6 +457,37 @@ export default function Schedule() {
                             <Button onClick={handleAddNewCourse}>İlk Dersi Ekle</Button>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Action Buttons - Moved to bottom */}
+            <div className="pt-8 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex flex-wrap gap-3 justify-center">
+                    <Button
+                        variant="secondary"
+                        onClick={downloadTemplate}
+                        className="flex-1 md:flex-none"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        Şablon İndir
+                    </Button>
+                    <label className="flex-1 md:flex-none cursor-pointer">
+                        <input
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={handleCSVUpload}
+                            disabled={uploadLoading}
+                        />
+                        <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full">
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploadLoading ? 'Yükleniyor...' : 'CSV Yükle'}
+                        </div>
+                    </label>
+                    <Button onClick={() => setIsAdding(true)} className="flex-1 md:flex-none shadow-lg shadow-blue-500/20">
+                        <Plus className="h-5 w-5 mr-2" />
+                        Ders Ekle
+                    </Button>
                 </div>
             </div>
 
