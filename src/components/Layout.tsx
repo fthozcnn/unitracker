@@ -1,0 +1,131 @@
+import { useState } from 'react'
+import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import {
+    LayoutDashboard,
+    Calendar,
+    BarChart2,
+    Settings,
+    LogOut,
+    Menu,
+    GraduationCap,
+    Timer,
+    Users,
+    Trophy,
+    CalendarDays
+} from 'lucide-react'
+import clsx from 'clsx'
+import NotificationCenter from './NotificationCenter'
+
+export default function Layout() {
+    const { signOut, user } = useAuth()
+    const location = useLocation()
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+    const navigation = [
+        { name: 'Ana Sayfa', href: '/', icon: LayoutDashboard },
+        { name: 'Ders Programı', href: '/schedule', icon: CalendarDays },
+        { name: 'Rozetler', href: '/badges', icon: Trophy },
+        { name: 'Çalışma Odası', href: '/study', icon: Timer },
+        { name: 'Takvim', href: '/calendar', icon: Calendar },
+        { name: 'Analizler', href: '/analytics', icon: BarChart2 },
+        { name: 'Sosyal', href: '/social', icon: Users },
+        { name: 'Profil & Ayarlar', href: '/settings', icon: Settings },
+    ]
+
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors duration-200">
+            {/* Mobile Menu Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
+            <aside className={clsx(
+                "fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+                isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                <div className="h-full flex flex-col p-6">
+                    {/* Logo */}
+                    <div className="flex items-center space-x-3 px-2 mb-10">
+                        <div className="w-10 h-10 bg-gray-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-gray-900">
+                            <GraduationCap className="h-6 w-6" />
+                        </div>
+                        <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniTracker</span>
+                        <div className="ml-auto">
+                            <NotificationCenter position="left" />
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <nav className="flex-1 space-y-1">
+                        {navigation.map((item) => {
+                            const isActive = location.pathname === item.href
+                            return (
+                                <Link
+                                    key={item.name}
+                                    to={item.href}
+                                    onClick={() => setIsMobileMenuOpen(false)}
+                                    className={clsx(
+                                        "flex items-center px-4 py-3.5 text-sm font-medium rounded-xl transition-all duration-200 group",
+                                        isActive
+                                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-lg shadow-gray-200 dark:shadow-none"
+                                            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800"
+                                    )}
+                                >
+                                    <item.icon className={clsx("mr-3 h-5 w-5 transition-transform group-hover:scale-110", isActive ? "text-white dark:text-gray-900" : "text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300")} />
+                                    {item.name}
+                                </Link>
+                            )
+                        })}
+                    </nav>
+
+                    {/* User Profile - Clean */}
+                    <div className="mt-auto pt-6 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group">
+                            <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm border-2 border-white dark:border-gray-700 shadow-sm">
+                                {user?.email?.[0].toUpperCase()}
+                            </div>
+                            <div className="ml-3 overflow-hidden flex-1">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                    {user?.email?.split('@')[0]}
+                                </p>
+                                <p className="text-xs text-gray-400 truncate">Öğrenci</p>
+                            </div>
+                            <button onClick={signOut} className="ml-2 text-gray-400 hover:text-red-500 transition-colors">
+                                <LogOut className="h-5 w-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white dark:bg-black">
+                {/* Mobile Header */}
+                <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 h-16">
+                    <div className="flex items-center">
+                        <GraduationCap className="h-6 w-6 text-gray-900 dark:text-white mr-2" />
+                        <span className="text-lg font-bold text-gray-900 dark:text-white">UniTracker</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <NotificationCenter />
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        >
+                            <Menu className="h-6 w-6" />
+                        </button>
+                    </div>
+                </header>
+
+                <main className="flex-1 overflow-y-auto p-4 lg:p-12">
+                    <Outlet />
+                </main>
+            </div>
+        </div>
+    )
+}
