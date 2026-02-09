@@ -112,7 +112,7 @@ export default function Analytics() {
                 <Card className="p-6">
                     <h3 className="text-sm font-medium text-gray-500">Mevcut Seri (Streak)</h3>
                     <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
-                        {streak} <span className="text-sm font-normal text-gray-500">Gün</span>
+                        {streak || 0} <span className="text-sm font-normal text-gray-500">Gün</span>
                     </p>
                 </Card>
                 <Card className="p-6">
@@ -124,7 +124,7 @@ export default function Analytics() {
                 <Card className="p-6">
                     <h3 className="text-sm font-medium text-gray-500">En Çok Çalışılan Ders</h3>
                     <p className="text-xl font-bold text-gray-900 dark:text-white mt-2 truncate">
-                        {courseDist?.sort((a, b) => b.value - a.value)[0]?.name || '-'}
+                        {courseDist && courseDist.length > 0 ? courseDist.sort((a, b) => b.value - a.value)[0]?.name : '-'}
                     </p>
                 </Card>
             </div>
@@ -134,17 +134,23 @@ export default function Analytics() {
                 <Card className="p-6">
                     <h3 className="font-semibold text-gray-900 dark:text-white mb-6">Haftalık Çalışma Süresi (Dakika)</h3>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyData}>
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#fff', borderRadius: '8px' }}
-                                    cursor={{ fill: 'transparent' }}
-                                />
-                                <Bar dataKey="duration" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {weeklyData && weeklyData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={weeklyData}>
+                                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px' }}
+                                        cursor={{ fill: 'transparent' }}
+                                    />
+                                    <Bar dataKey="duration" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400">
+                                <p>Henüz çalışma verisi yok</p>
+                            </div>
+                        )}
                     </div>
                 </Card>
 
@@ -152,32 +158,40 @@ export default function Analytics() {
                 <Card className="p-6">
                     <h3 className="font-semibold text-gray-900 dark:text-white mb-6">Ders Bazlı Dağılım</h3>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={courseDist}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {courseDist?.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                        {courseDist && courseDist.length > 0 ? (
+                            <>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={courseDist}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {courseDist.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="flex flex-wrap gap-2 justify-center mt-4">
+                                    {courseDist.map((entry, index) => (
+                                        <div key={index} className="flex items-center text-xs text-gray-500">
+                                            <span className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: entry.color || COLORS[index % COLORS.length] }} />
+                                            {entry.name}
+                                        </div>
                                     ))}
-                                </Pie>
-                                <Tooltip />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex flex-wrap gap-2 justify-center mt-4">
-                            {courseDist?.map((entry, index) => (
-                                <div key={index} className="flex items-center text-xs text-gray-500">
-                                    <span className="w-2 h-2 rounded-full mr-1" style={{ backgroundColor: entry.color || COLORS[index % COLORS.length] }} />
-                                    {entry.name}
                                 </div>
-                            ))}
-                        </div>
+                            </>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400">
+                                <p>Ders dağılımı için veri yok</p>
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>
