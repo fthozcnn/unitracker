@@ -403,7 +403,7 @@ export default function Social() {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Bu {leaderboardTimeframe === 'weekly' ? 'hafta' : 'ay'}</p>
                                         </div>
                                         <div className="text-right ml-3 shrink-0 flex items-center gap-3">
-                                            <div className="hidden group-hover:flex items-center gap-1 scale-90 origin-right transition-all">
+                                            <div className="flex items-center gap-1">
                                                 {entry.user_id !== user?.id && (
                                                     <>
                                                         <button
