@@ -403,21 +403,21 @@ export default function Social() {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Bu {leaderboardTimeframe === 'weekly' ? 'hafta' : 'ay'}</p>
                                         </div>
                                         <div className="text-right ml-3 shrink-0 flex items-center gap-3">
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-2 mr-2">
                                                 {entry.user_id !== user?.id && (
                                                     <>
                                                         <button
                                                             onClick={() => sendInteractionMutation.mutate({ targetUserId: entry.user_id, type: 'applause' })}
                                                             disabled={sendInteractionMutation.isPending}
-                                                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 transition-colors"
+                                                            className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors shadow-md"
                                                             title="Tebrik Et"
                                                         >
-                                                            <Heart className="h-4 w-4 fill-current" />
+                                                            <Heart className="h-4 w-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => sendInteractionMutation.mutate({ targetUserId: entry.user_id, type: 'nudge' })}
                                                             disabled={sendInteractionMutation.isPending}
-                                                            className="p-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/20 dark:text-orange-400 transition-colors"
+                                                            className="p-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-md"
                                                             title="Dürt"
                                                         >
                                                             <Bell className="h-4 w-4" />
