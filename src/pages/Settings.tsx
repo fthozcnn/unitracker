@@ -178,7 +178,7 @@ export default function Settings() {
                                 {pushEnabled ? 'Bildirimler aktif' : 'Bildirimler kapalı'}
                             </span>
                             <Button
-                                variant={pushEnabled ? 'ghost' : 'default'}
+                                variant={pushEnabled ? 'ghost' : 'primary'}
                                 onClick={async () => {
                                     setLoading(true)
                                     try {
