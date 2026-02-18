@@ -392,6 +392,66 @@ export default function Dashboard() {
                 </Card>
             </div>
 
+            {/* Live Presence Widget */}
+            <Card className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-2">
+                        <Wifi className="h-5 w-5 text-green-500" />
+                        <h3 className="font-bold text-lg text-gray-900 dark:text-white tracking-tight">Canlı Durum</h3>
+                    </div>
+                    <Link to="/social" className="text-xs font-bold text-blue-600 hover:text-blue-500 uppercase tracking-wider">Sosyal</Link>
+                </div>
+                {(() => {
+                    const activeFriends = friends?.filter((f: any) => {
+                        const p = friendPresence[f.friend?.id]
+                        return p && p.status !== 'idle'
+                    }) || []
+
+                    if (activeFriends.length === 0) {
+                        return (
+                            <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                                <p className="text-xs text-gray-500">Şu an aktif arkadaş yok.</p>
+                            </div>
+                        )
+                    }
+
+                    return (
+                        <div className="space-y-3">
+                            {activeFriends.map((f: any) => {
+                                const p = friendPresence[f.friend?.id]
+                                const statusLabels: Record<string, string> = {
+                                    studying: '📖 Çalışıyor',
+                                    pomodoro: '🍅 Pomodoro',
+                                    break: '☕ Molada'
+                                }
+                                const statusColors: Record<string, string> = {
+                                    studying: 'bg-green-500',
+                                    pomodoro: 'bg-red-500',
+                                    break: 'bg-yellow-500'
+                                }
+                                return (
+                                    <div key={f.friend?.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative">
+                                                <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
+                                                    {(f.friend?.display_name || f.friend?.email)?.[0]?.toUpperCase()}
+                                                </div>
+                                                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${statusColors[p?.status] || 'bg-gray-400'} animate-pulse`} />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{f.friend?.display_name || f.friend?.email?.split('@')[0]}</p>
+                                                <p className="text-[10px] text-gray-500 font-medium">{p?.current_course || ''}</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-bold text-gray-500">{statusLabels[p?.status] || p?.status}</span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )
+                })()}
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Heatmap Section */}
                 <Card className="p-4 md:p-6 lg:col-span-2 overflow-hidden">
@@ -569,66 +629,6 @@ export default function Dashboard() {
                             })
                         )}
                     </div>
-                </Card>
-
-                {/* Live Presence Widget */}
-                <Card className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <Wifi className="h-5 w-5 text-green-500" />
-                            <h3 className="font-bold text-lg text-gray-900 dark:text-white tracking-tight">Canlı Durum</h3>
-                        </div>
-                        <Link to="/social" className="text-xs font-bold text-blue-600 hover:text-blue-500 uppercase tracking-wider">Sosyal</Link>
-                    </div>
-                    {(() => {
-                        const activeFriends = friends?.filter((f: any) => {
-                            const p = friendPresence[f.friend?.id]
-                            return p && p.status !== 'idle'
-                        }) || []
-
-                        if (activeFriends.length === 0) {
-                            return (
-                                <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                                    <p className="text-xs text-gray-500">Şu an aktif arkadaş yok.</p>
-                                </div>
-                            )
-                        }
-
-                        return (
-                            <div className="space-y-3">
-                                {activeFriends.map((f: any) => {
-                                    const p = friendPresence[f.friend?.id]
-                                    const statusLabels: Record<string, string> = {
-                                        studying: '📖 Çalışıyor',
-                                        pomodoro: '🍅 Pomodoro',
-                                        break: '☕ Molada'
-                                    }
-                                    const statusColors: Record<string, string> = {
-                                        studying: 'bg-green-500',
-                                        pomodoro: 'bg-red-500',
-                                        break: 'bg-yellow-500'
-                                    }
-                                    return (
-                                        <div key={f.friend?.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                                            <div className="flex items-center gap-3">
-                                                <div className="relative">
-                                                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
-                                                        {(f.friend?.display_name || f.friend?.email)?.[0]?.toUpperCase()}
-                                                    </div>
-                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${statusColors[p?.status] || 'bg-gray-400'} animate-pulse`} />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{f.friend?.display_name || f.friend?.email?.split('@')[0]}</p>
-                                                    <p className="text-[10px] text-gray-500 font-medium">{p?.current_course || ''}</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-xs font-bold text-gray-500">{statusLabels[p?.status] || p?.status}</span>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )
-                    })()}
                 </Card>
             </div>
         </div>
