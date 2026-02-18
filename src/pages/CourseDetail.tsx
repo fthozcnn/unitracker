@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Plus, Trash2, CheckCircle, Circle, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, CheckCircle, Circle, AlertTriangle, Minus } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Button, Card, Input } from '../components/ui-base'
-import { startOfWeek, addWeeks, format } from 'date-fns'
-import { tr } from 'date-fns/locale'
+
 
 type SyllabusItem = {
     week: number
@@ -21,6 +20,7 @@ type Course = {
     credit: number
     syllabus: SyllabusItem[]
     attendance_limit: number
+    absent_count: number
 }
 
 export default function CourseDetail() {
@@ -44,26 +44,17 @@ export default function CourseDetail() {
         }
     })
 
-    // Attendance Query
-    const { data: attendanceCount } = useQuery({
-        queryKey: ['attendance', id],
-        queryFn: async () => {
-            // For now, we calculate attendance based on user input or study sessions?
-            // Actually, per requirement "Ders bazlı devamsızlık takibi", we might need a simple counter or specific dates.
-            // Let's implement a simple counter for MVP stored in local state or a separate table if needed.
-            // But wait, schema has no separate attendance table, maybe we use a JSON field or just a simple counter in courses?
-            // Ah, the schema I defined has `attendance_limit`.
-            // Let's add an `attendance` field to the course table or use `study_sessions` to infer?
-            // Requirement: "Ders bazlı devamsızlık takibi". 
-            // Let's allow user to manually increment "Missed Hours".
-            // I'll add `absent_hours` to the courses table schema update or assume it exists/add it now.
-            // Checking my schema... I didn't add `absent_hours` to `courses`.
-            // I will add it via SQL query first.
-
-            // Temporary: fetching specific absent count if I had it.
-            // usage of 'attendance_limit' suggests we need to track 'current_absent'.
-            // I will update the table structure in the next step. For now, let's assume it is 0.
-            return 0
+    // Attendance Mutation
+    const updateAttendanceMutation = useMutation({
+        mutationFn: async (newCount: number) => {
+            const { error } = await supabase
+                .from('courses')
+                .update({ absent_count: Math.max(0, newCount) })
+                .eq('id', id)
+            if (error) throw error
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['course', id] })
         }
     })
 
@@ -134,24 +125,52 @@ export default function CourseDetail() {
                 {/* Attendance Card */}
                 <Card className="p-6 md:col-span-1 border-t-4" style={{ borderTopColor: course.color }}>
                     <h3 className="font-semibold text-lg mb-4">Devamsızlık Durumu</h3>
+
+                    {course.absent_count >= course.attendance_limit ? (
+                        <div className="flex items-center gap-2 p-2 mb-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-xs font-bold animate-pulse">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            <span>Kaldınız! Sınır aşıldı.</span>
+                        </div>
+                    ) : (course.absent_count / course.attendance_limit) >= 0.8 && (
+                        <div className="flex items-center gap-2 p-2 mb-4 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg text-xs font-bold">
+                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                            <span>Dikkat! Limit dolmak üzere.</span>
+                        </div>
+                    )}
+
                     <div className="text-center py-4">
                         <div className="text-4xl font-bold text-gray-900 dark:text-white mb-1">
-                            {/* Placeholder for actual absent count */}
-                            0 <span className="text-lg text-gray-400 font-normal">/ {course.attendance_limit}</span>
+                            {course.absent_count} <span className="text-lg text-gray-400 font-normal">/ {course.attendance_limit}</span>
                         </div>
-                        <p className="text-sm text-gray-500">Saat</p>
+                        <p className="text-sm text-gray-500">Ders/Saat</p>
                     </div>
 
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-4">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-6">
                         <div
-                            className="bg-red-600 h-2.5 rounded-full"
-                            style={{ width: `${Math.min((0 / course.attendance_limit) * 100, 100)}%` }}
+                            className={`h-2.5 rounded-full transition-all duration-500 ${(course.absent_count / course.attendance_limit) >= 1 ? 'bg-red-600' :
+                                (course.absent_count / course.attendance_limit) >= 0.8 ? 'bg-orange-500' : 'bg-blue-600'
+                                }`}
+                            style={{ width: `${Math.min((course.absent_count / course.attendance_limit) * 100, 100)}%` }}
                         ></div>
                     </div>
 
-                    <div className="flex justify-center space-x-2">
-                        <Button size="sm" variant="secondary" onClick={() => alert('Devamsızlık ekleme yakında!')}>
-                            +1 Saat Ekle
+                    <div className="flex items-center justify-between gap-2">
+                        <Button
+                            className="flex-1"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => updateAttendanceMutation.mutate(course.absent_count - 1)}
+                            disabled={course.absent_count <= 0 || updateAttendanceMutation.isPending}
+                        >
+                            <Minus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                            size="sm"
+                            onClick={() => updateAttendanceMutation.mutate(course.absent_count + 1)}
+                            disabled={updateAttendanceMutation.isPending}
+                        >
+                            <Plus className="h-4 w-4" />
                         </Button>
                     </div>
                 </Card>
