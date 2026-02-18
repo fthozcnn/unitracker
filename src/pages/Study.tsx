@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import StudyTimer from '../components/StudyTimer'
+import SyncPomodoro from '../components/SyncPomodoro'
 import ManualSessionModal from '../components/ManualSessionModal'
 import { Button, Card } from '../components/ui-base'
 import { Plus, Edit2, Trash2, Wind, CloudRain, Music, Maximize2, Minimize2, Volume2, VolumeX, Coffee } from 'lucide-react'
@@ -341,7 +342,11 @@ export default function Study() {
                 </div>
 
                 {/* Ambient Sounds Section */}
+                {/* Sidebar */}
                 <div className="space-y-6">
+                    {/* Sync Pomodoro */}
+                    <SyncPomodoro />
+
                     <Card className="p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Volume2 className="h-5 w-5 text-blue-500" />

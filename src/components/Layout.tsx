@@ -36,6 +36,15 @@ export default function Layout() {
         { name: 'Profil & Ayarlar', href: '/settings', icon: Settings },
     ]
 
+    // Bottom nav - 5 most important tabs for mobile
+    const mobileNav = [
+        { name: 'Ana Sayfa', href: '/', icon: LayoutDashboard },
+        { name: 'Çalış', href: '/study', icon: Timer },
+        { name: 'Takvim', href: '/calendar', icon: Calendar },
+        { name: 'Sosyal', href: '/social', icon: Users },
+        { name: 'Ayarlar', href: '/settings', icon: Settings },
+    ]
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors duration-200">
             {/* Mobile Menu Overlay */}
@@ -125,9 +134,44 @@ export default function Layout() {
                     <NotificationCenter />
                 </header >
 
-                <main className="flex-1 overflow-y-auto p-4 lg:p-12">
+                <main className="flex-1 overflow-y-auto p-4 lg:p-12 pb-24 lg:pb-12">
                     <Outlet />
                 </main>
+
+                {/* Mobile Bottom Navigation */}
+                <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 safe-area-bottom">
+                    <div className="flex items-center justify-around h-16 px-2">
+                        {mobileNav.map((item) => {
+                            const isActive = location.pathname === item.href
+                            return (
+                                <Link
+                                    key={item.name}
+                                    to={item.href}
+                                    className={clsx(
+                                        "flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-all duration-200",
+                                        isActive
+                                            ? "text-blue-600 dark:text-blue-400"
+                                            : "text-gray-400 dark:text-gray-500"
+                                    )}
+                                >
+                                    <item.icon className={clsx(
+                                        "h-5 w-5 transition-transform",
+                                        isActive && "scale-110"
+                                    )} />
+                                    <span className={clsx(
+                                        "text-[10px] font-semibold",
+                                        isActive && "font-bold"
+                                    )}>
+                                        {item.name}
+                                    </span>
+                                    {isActive && (
+                                        <div className="absolute bottom-1 w-5 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+                                    )}
+                                </Link>
+                            )
+                        })}
+                    </div>
+                </nav>
             </div >
         </div >
     )

@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button } from '../components/ui-base'
-import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target } from 'lucide-react'
-import { format, isSameDay, subDays, subMonths, eachDayOfInterval } from 'date-fns'
+import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap } from 'lucide-react'
+import { format, isSameDay, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
 import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
@@ -77,6 +77,23 @@ export default function Dashboard() {
                 .gte('due_date', new Date().toISOString())
                 .order('due_date', { ascending: true })
                 .limit(3)
+            return data || []
+        }
+    })
+
+    // Upcoming Exams for Countdown
+    const { data: upcomingExams } = useQuery({
+        queryKey: ['upcoming_exams_countdown'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('assignments')
+                .select('*, courses(name, color)')
+                .eq('user_id', user?.id)
+                .in('type', ['exam', 'project'])
+                .eq('is_completed', false)
+                .gte('due_date', new Date().toISOString())
+                .order('due_date', { ascending: true })
+                .limit(5)
             return data || []
         }
     })
@@ -228,6 +245,52 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-3 w-full bg-white/20 rounded-full h-2">
                         <div className="bg-white h-2 rounded-full transition-all duration-700" style={{ width: `${levelProgress(profile.total_xp || 0)}%` }} />
+                    </div>
+                </Card>
+            )}
+
+            {/* Exam Countdown Widget */}
+            {upcomingExams && upcomingExams.length > 0 && (
+                <Card className="p-4 md:p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <GraduationCap className="h-5 w-5 text-red-500" />
+                            Yaklaşan Sınavlar & Projeler
+                        </h3>
+                        <Link to="/calendar" className="text-xs text-blue-600 hover:underline font-semibold">Tümü →</Link>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {upcomingExams.map((exam: any) => {
+                            const daysLeft = differenceInDays(new Date(exam.due_date), new Date())
+                            const isUrgent = daysLeft <= 3
+                            const isWarning = daysLeft <= 7
+                            return (
+                                <div
+                                    key={exam.id}
+                                    className={`relative p-4 rounded-xl border-l-4 transition-all ${isUrgent
+                                            ? 'bg-red-50 dark:bg-red-900/15 border-red-500'
+                                            : isWarning
+                                                ? 'bg-orange-50 dark:bg-orange-900/15 border-orange-500'
+                                                : 'bg-gray-50 dark:bg-gray-800 border-green-500'
+                                        } ${isUrgent ? 'animate-pulse' : ''}`}
+                                >
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: exam.courses?.color || '#6B7280' }} />
+                                        <span className="text-xs font-bold text-gray-500 uppercase">{exam.courses?.name}</span>
+                                    </div>
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white mb-2 truncate">{exam.title}</p>
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-2xl font-black ${isUrgent ? 'text-red-600' : isWarning ? 'text-orange-600' : 'text-green-600'
+                                            }`}>
+                                            {daysLeft === 0 ? 'BUGÜN!' : `${daysLeft} gün`}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 font-semibold">
+                                            {format(new Date(exam.due_date), 'd MMM', { locale: tr })}
+                                        </span>
+                                    </div>
+                                </div>
+                            )
+                        })}
                     </div>
                 </Card>
             )}
