@@ -99,7 +99,12 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
                                 notifications?.map((n) => (
                                     <div
                                         key={n.id}
-                                        className={`p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!n.is_read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                        className={`p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!n.is_read
+                                                ? n.type === 'nudge' ? 'bg-orange-50/50 dark:bg-orange-900/10'
+                                                    : n.type === 'cheer' ? 'bg-green-50/50 dark:bg-green-900/10'
+                                                        : 'bg-blue-50/50 dark:bg-blue-900/10'
+                                                : ''
+                                            }`}
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="flex-1 min-w-0">
