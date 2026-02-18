@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import StudyTimer from '../components/StudyTimer'
 import ManualSessionModal from '../components/ManualSessionModal'
 import { Button, Card } from '../components/ui-base'
-import { Plus, Edit2, Trash2, Wind, CloudRain, Music, Maximize2, Minimize2, Volume2, VolumeX } from 'lucide-react'
+import { Plus, Edit2, Trash2, Wind, CloudRain, Music, Maximize2, Minimize2, Volume2, VolumeX, Coffee } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -10,9 +10,10 @@ import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 const AMBIENT_SOUNDS = [
-    { id: 'lofi', name: 'Lo-Fi Müzik', icon: Music, url: 'https://p.scdn.co/mp3-preview/a02018a4a584347781b09b5e581297eef84090b8?cid=774b29d4f13844c495f206141e300357' },
-    { id: 'rain', name: 'Yağmur', icon: CloudRain, url: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
-    { id: 'forest', name: 'Doğa', icon: Wind, url: 'https://assets.mixkit.co/active_storage/sfx/1243/1243-preview.mp3' }
+    { id: 'lofi', name: 'Lo-Fi Müzik', icon: Music, url: 'https://assets.mixkit.co/music/download/mixkit-lofi-night-chill-597.mp3' },
+    { id: 'rain', name: 'Yağmur', icon: CloudRain, url: 'https://cdn.pixabay.com/audio/2021/09/06/audio_9273c5b52c.mp3' },
+    { id: 'forest', name: 'Doğa', icon: Wind, url: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c33075836d.mp3' },
+    { id: 'cafe', name: 'Kütüphane / Kafe', icon: Coffee, url: 'https://cdn.pixabay.com/audio/2021/11/24/audio_3327d7d3d1.mp3' }
 ]
 
 export default function Study() {
