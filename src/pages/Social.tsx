@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -17,6 +17,7 @@ export default function Social() {
     const [successMessage, setSuccessMessage] = useState('')
     const [errorMessage, setErrorMessage] = useState('')
     const [reactionFeedback, setReactionFeedback] = useState<Record<string, string>>({})
+    const [friendPresence, setFriendPresence] = useState<Record<string, { status: string, current_course: string | null }>>({})
 
     // Challenges State
     const [showCreateModal, setShowCreateModal] = useState(false)
@@ -49,6 +50,37 @@ export default function Social() {
             return data || []
         }
     })
+
+    // Fetch and subscribe to friend presence
+    useEffect(() => {
+        if (!friends || friends.length === 0) return
+        const friendIds = friends.map((f: any) => f.friend?.id).filter(Boolean)
+        if (friendIds.length === 0) return
+
+        const fetchPresence = async () => {
+            const { data } = await supabase
+                .from('user_presence')
+                .select('user_id, status, current_course')
+                .in('user_id', friendIds)
+            if (data) {
+                const map: Record<string, { status: string, current_course: string | null }> = {}
+                data.forEach((p: any) => { map[p.user_id] = { status: p.status, current_course: p.current_course } })
+                setFriendPresence(map)
+            }
+        }
+        fetchPresence()
+
+        const channel = supabase.channel('presence_updates')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload: any) => {
+                const row = payload.new
+                if (row && friendIds.includes(row.user_id)) {
+                    setFriendPresence(prev => ({ ...prev, [row.user_id]: { status: row.status, current_course: row.current_course } }))
+                }
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
+    }, [friends])
 
     // Fetch sent pending requests
     const { data: sentRequests } = useQuery({
@@ -522,14 +554,26 @@ export default function Social() {
                                             return (
                                                 <div key={friendship.id} className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30 transition-all group">
                                                     <div className="flex items-center">
-                                                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs mr-3 shrink-0">
+                                                        <div className="relative h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs mr-3 shrink-0">
                                                             {(friendship.friend?.display_name || friendship.friend?.email)?.[0]?.toUpperCase()}
+                                                            {/* Presence dot */}
+                                                            {friendPresence[friendId] && friendPresence[friendId].status !== 'idle' && (
+                                                                <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-800 ${friendPresence[friendId].status === 'studying' ? 'bg-green-500' : friendPresence[friendId].status === 'pomodoro' ? 'bg-orange-500' : friendPresence[friendId].status === 'break' ? 'bg-yellow-400' : 'bg-gray-400'}`} />
+                                                            )}
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                                                                 {friendship.friend?.display_name || friendship.friend?.email}
                                                             </p>
-                                                            <p className="text-[10px] text-gray-500 truncate">{friendship.friend?.email}</p>
+                                                            <p className="text-[10px] text-gray-500 truncate">
+                                                                {friendPresence[friendId] && friendPresence[friendId].status !== 'idle'
+                                                                    ? <span className="text-green-600 dark:text-green-400 font-semibold">
+                                                                        {friendPresence[friendId].status === 'pomodoro' ? '🍅 Pomodoro' : '📚 Çalışıyor'}
+                                                                        {friendPresence[friendId].current_course && ` • ${friendPresence[friendId].current_course}`}
+                                                                    </span>
+                                                                    : friendship.friend?.email
+                                                                }
+                                                            </p>
                                                         </div>
                                                         <div className="flex gap-1 ml-2 shrink-0">
                                                             <button
@@ -537,10 +581,10 @@ export default function Social() {
                                                                 disabled={!!reactionFeedback[nudgeKey]}
                                                                 title="Dürt! 👊"
                                                                 className={`p-1.5 rounded-lg transition-all text-xs ${reactionFeedback[nudgeKey] === 'sent'
-                                                                        ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 scale-110'
-                                                                        : reactionFeedback[nudgeKey] === 'error'
-                                                                            ? 'bg-red-100 text-red-500'
-                                                                            : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:hover:text-orange-400'
+                                                                    ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 scale-110'
+                                                                    : reactionFeedback[nudgeKey] === 'error'
+                                                                        ? 'bg-red-100 text-red-500'
+                                                                        : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:hover:text-orange-400'
                                                                     }`}
                                                             >
                                                                 {reactionFeedback[nudgeKey] === 'sent' ? '👊' : <Megaphone className="h-3.5 w-3.5" />}
@@ -550,10 +594,10 @@ export default function Social() {
                                                                 disabled={!!reactionFeedback[cheerKey]}
                                                                 title="Tebrik et! 🎉"
                                                                 className={`p-1.5 rounded-lg transition-all text-xs ${reactionFeedback[cheerKey] === 'sent'
-                                                                        ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 scale-110'
-                                                                        : reactionFeedback[cheerKey] === 'error'
-                                                                            ? 'bg-red-100 text-red-500'
-                                                                            : 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 dark:hover:text-green-400'
+                                                                    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 scale-110'
+                                                                    : reactionFeedback[cheerKey] === 'error'
+                                                                        ? 'bg-red-100 text-red-500'
+                                                                        : 'text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 dark:hover:text-green-400'
                                                                     }`}
                                                             >
                                                                 {reactionFeedback[cheerKey] === 'sent' ? '🎉' : <PartyPopper className="h-3.5 w-3.5" />}
@@ -695,6 +739,6 @@ export default function Social() {
                     )}
                 </div>
             )}
-        </div>
+        </div >
     )
 }

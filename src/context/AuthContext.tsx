@@ -8,6 +8,8 @@ type Profile = {
     display_name: string | null
     avatar_url: string | null
     bio: string | null
+    total_xp: number
+    level: number
 }
 
 type AuthContextType = {

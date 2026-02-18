@@ -7,6 +7,7 @@ import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal
 import { format, isSameDay, subDays, subMonths, eachDayOfInterval } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
+import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
@@ -207,6 +208,29 @@ export default function Dashboard() {
                     </Link>
                 </div>
             </div>
+            {/* XP & Level Card */}
+            {profile && (
+                <Card className="p-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white border-none shadow-lg shadow-purple-500/20">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl font-black">
+                                {calculateLevel(profile.total_xp || 0)}
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-white/70 uppercase tracking-wider">Seviye {calculateLevel(profile.total_xp || 0)}</p>
+                                <p className="text-lg font-black">{(profile.total_xp || 0).toLocaleString()} XP</p>
+                            </div>
+                        </div>
+                        <div className="text-right text-xs text-white/70">
+                            <p>Sonraki seviye</p>
+                            <p className="font-bold text-white">{xpForLevel(calculateLevel(profile.total_xp || 0) + 1).toLocaleString()} XP</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 w-full bg-white/20 rounded-full h-2">
+                        <div className="bg-white h-2 rounded-full transition-all duration-700" style={{ width: `${levelProgress(profile.total_xp || 0)}%` }} />
+                    </div>
+                </Card>
+            )}
 
             {/* Overview Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">

@@ -4,6 +4,7 @@ import { Button, Card, Input } from './ui-base'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { addXP, updatePresence, XP_REWARDS } from '../lib/xpSystem'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -107,7 +108,16 @@ export default function StudyTimer() {
         } else if (!isActive && mode === 'pomodoro' && pomodoroMode === 'work') {
             startTimeRef.current = new Date()
         }
-        setIsActive(!isActive)
+        const newActive = !isActive
+        setIsActive(newActive)
+
+        // Update presence
+        if (newActive) {
+            const courseName = courses?.find((c: any) => c.id === selectedCourseId)?.name
+            updatePresence(mode === 'pomodoro' ? 'pomodoro' : 'studying', courseName || undefined)
+        } else {
+            updatePresence('idle')
+        }
     }
 
     const resetTimer = () => {
@@ -117,6 +127,7 @@ export default function StudyTimer() {
         setPomodoroMode('work')
         setCycles(0)
         startTimeRef.current = null
+        updatePresence('idle')
     }
 
     const saveSession = async () => {
@@ -147,6 +158,15 @@ export default function StudyTimer() {
             })
 
             if (error) throw error
+
+            // Award XP based on study duration
+            const minutesStudied = Math.floor(duration / 60)
+            if (minutesStudied > 0) {
+                await addXP(user.id, minutesStudied * XP_REWARDS.STUDY_MINUTE)
+            }
+
+            // Update presence
+            updatePresence('idle')
 
             alert('Çalışma başarıyla kaydedildi! 🎉')
             if (mode === 'stopwatch') {
