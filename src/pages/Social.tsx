@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input } from '../components/ui-base'
-import { Users, Trophy, UserPlus, Check, X, Search, Bell, Heart, Target, Plus, Calendar as CalendarIcon, Users2 } from 'lucide-react'
+import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2 } from 'lucide-react'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -145,37 +145,6 @@ export default function Social() {
         }
     })
 
-    // Nudge/Applause Mutations
-    const sendInteractionMutation = useMutation({
-        mutationFn: async ({ targetUserId, type }: { targetUserId: string, type: 'nudge' | 'applause' }) => {
-            if (targetUserId === user?.id) {
-                throw new Error("Kendine dürtme veya alkış gönderemezsin!")
-            }
-            const title = type === 'nudge' ? 'Dürtüldün! 🔔' : 'Tebrikler! 👏'
-            const message = type === 'nudge'
-                ? `${user?.email?.split('@')[0]} seni dürtüyor, biraz çalışmaya ne dersin?`
-                : `${user?.email?.split('@')[0]} çalışma başarın için seni alkışlıyor!`
-
-            const { error } = await supabase
-                .from('notifications')
-                .insert({
-                    user_id: targetUserId,
-                    type: type,
-                    title: title,
-                    message: message,
-                    link: '/study'
-                })
-            if (error) throw error
-        },
-        onSuccess: (_, variables) => {
-            setSuccessMessage(variables.type === 'nudge' ? 'Dürtme gönderildi!' : 'Alkış gönderildi!')
-            setTimeout(() => setSuccessMessage(''), 2000)
-        },
-        onError: (error: any) => {
-            setErrorMessage(error.message || 'Etkileşim gönderilirken bir hata oluştu.')
-            setTimeout(() => setErrorMessage(''), 5000)
-        }
-    })
 
     const rejectRequestMutation = useMutation({
         mutationFn: async (friendshipId: string) => {
@@ -403,28 +372,6 @@ export default function Social() {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Bu {leaderboardTimeframe === 'weekly' ? 'hafta' : 'ay'}</p>
                                         </div>
                                         <div className="text-right ml-3 shrink-0 flex items-center gap-3">
-                                            <div className="flex items-center gap-2 mr-2">
-                                                {entry.user_id !== user?.id && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => sendInteractionMutation.mutate({ targetUserId: entry.user_id, type: 'applause' })}
-                                                            disabled={sendInteractionMutation.isPending}
-                                                            className="p-2 rounded-full bg-green-500 text-white hover:bg-green-600 transition-colors shadow-md"
-                                                            title="Tebrik Et"
-                                                        >
-                                                            <Heart className="h-4 w-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => sendInteractionMutation.mutate({ targetUserId: entry.user_id, type: 'nudge' })}
-                                                            disabled={sendInteractionMutation.isPending}
-                                                            className="p-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition-colors shadow-md"
-                                                            title="Dürt"
-                                                        >
-                                                            <Bell className="h-4 w-4" />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
                                             <div className="text-right">
                                                 <p className="font-black text-lg text-blue-600 dark:text-blue-400">{Math.round(entry.total_minutes / 60)}h</p>
                                                 <p className="text-[10px] uppercase font-bold text-gray-400">{entry.total_minutes % 60}m</p>

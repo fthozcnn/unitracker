@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui-base'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { startOfWeek, endOfWeek, subWeeks, format, eachDayOfInterval } from 'date-fns'
+import { startOfWeek, endOfWeek, format, eachDayOfInterval } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 export default function Analytics() {
