@@ -58,13 +58,30 @@ export async function addXP(userId: string, amount: number): Promise<{ newXP: nu
     }
 }
 
-// Update user presence
+// Update user presence (direct upsert instead of RPC for reliability)
 export async function updatePresence(status: 'idle' | 'studying' | 'pomodoro' | 'break', courseName?: string) {
     try {
-        await supabase.rpc('update_user_presence', {
-            p_status: status,
-            p_course: courseName || null
-        })
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            console.warn('Presence update skipped: no user')
+            return
+        }
+
+        const { error } = await supabase
+            .from('user_presence')
+            .upsert({
+                user_id: user.id,
+                status,
+                current_course: courseName || null,
+                started_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' })
+
+        if (error) {
+            console.error('Presence upsert error:', error)
+        } else {
+            console.log('Presence updated:', status, courseName || '')
+        }
     } catch (err) {
         console.error('Presence update error:', err)
     }
