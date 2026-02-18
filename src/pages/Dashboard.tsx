@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button } from '../components/ui-base'
-import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap } from 'lucide-react'
+import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
 import { format, isSameDay, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
@@ -12,6 +13,7 @@ import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
 export default function Dashboard() {
     const { user, profile } = useAuth()
     useBadgeCheck()
+    const [friendPresence, setFriendPresence] = useState<Record<string, { status: string, current_course: string | null }>>({})
 
     // Recent Badges Query
     const { data: recentBadges } = useQuery({
@@ -193,6 +195,50 @@ export default function Dashboard() {
         }
     })
 
+    // Friends for presence
+    const { data: friends } = useQuery({
+        queryKey: ['dashboard_friends'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('friendships')
+                .select('*, friend:friend_id(id, email, display_name)')
+                .eq('user_id', user?.id)
+                .eq('status', 'accepted')
+            return data || []
+        }
+    })
+
+    // Presence subscription
+    useEffect(() => {
+        if (!friends || friends.length === 0) return
+        const friendIds = friends.map((f: any) => f.friend?.id).filter(Boolean)
+        if (friendIds.length === 0) return
+
+        const fetchPresence = async () => {
+            const { data } = await supabase
+                .from('user_presence')
+                .select('user_id, status, current_course')
+                .in('user_id', friendIds)
+            if (data) {
+                const map: Record<string, { status: string, current_course: string | null }> = {}
+                data.forEach((p: any) => { map[p.user_id] = { status: p.status, current_course: p.current_course } })
+                setFriendPresence(map)
+            }
+        }
+        fetchPresence()
+
+        const channel = supabase.channel('dashboard_presence')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'user_presence' }, (payload: any) => {
+                const row = payload.new
+                if (row && friendIds.includes(row.user_id)) {
+                    setFriendPresence(prev => ({ ...prev, [row.user_id]: { status: row.status, current_course: row.current_course } }))
+                }
+            })
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
+    }, [friends])
+
     return (
         <div className="space-y-6 md:space-y-8">
             {/* Home Header & Quick Actions */}
@@ -268,10 +314,10 @@ export default function Dashboard() {
                                 <div
                                     key={exam.id}
                                     className={`relative p-4 rounded-xl border-l-4 transition-all ${isUrgent
-                                            ? 'bg-red-50 dark:bg-red-900/15 border-red-500'
-                                            : isWarning
-                                                ? 'bg-orange-50 dark:bg-orange-900/15 border-orange-500'
-                                                : 'bg-gray-50 dark:bg-gray-800 border-green-500'
+                                        ? 'bg-red-50 dark:bg-red-900/15 border-red-500'
+                                        : isWarning
+                                            ? 'bg-orange-50 dark:bg-orange-900/15 border-orange-500'
+                                            : 'bg-gray-50 dark:bg-gray-800 border-green-500'
                                         } ${isUrgent ? 'animate-pulse' : ''}`}
                                 >
                                     <div className="flex items-center gap-2 mb-2">
@@ -523,6 +569,66 @@ export default function Dashboard() {
                             })
                         )}
                     </div>
+                </Card>
+
+                {/* Live Presence Widget */}
+                <Card className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                            <Wifi className="h-5 w-5 text-green-500" />
+                            <h3 className="font-bold text-lg text-gray-900 dark:text-white tracking-tight">Canlı Durum</h3>
+                        </div>
+                        <Link to="/social" className="text-xs font-bold text-blue-600 hover:text-blue-500 uppercase tracking-wider">Sosyal</Link>
+                    </div>
+                    {(() => {
+                        const activeFriends = friends?.filter((f: any) => {
+                            const p = friendPresence[f.friend?.id]
+                            return p && p.status !== 'idle'
+                        }) || []
+
+                        if (activeFriends.length === 0) {
+                            return (
+                                <div className="text-center py-8 bg-gray-50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                                    <p className="text-xs text-gray-500">Şu an aktif arkadaş yok.</p>
+                                </div>
+                            )
+                        }
+
+                        return (
+                            <div className="space-y-3">
+                                {activeFriends.map((f: any) => {
+                                    const p = friendPresence[f.friend?.id]
+                                    const statusLabels: Record<string, string> = {
+                                        studying: '📖 Çalışıyor',
+                                        pomodoro: '🍅 Pomodoro',
+                                        break: '☕ Molada'
+                                    }
+                                    const statusColors: Record<string, string> = {
+                                        studying: 'bg-green-500',
+                                        pomodoro: 'bg-red-500',
+                                        break: 'bg-yellow-500'
+                                    }
+                                    return (
+                                        <div key={f.friend?.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                                            <div className="flex items-center gap-3">
+                                                <div className="relative">
+                                                    <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-600 dark:text-gray-300">
+                                                        {(f.friend?.display_name || f.friend?.email)?.[0]?.toUpperCase()}
+                                                    </div>
+                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800 ${statusColors[p?.status] || 'bg-gray-400'} animate-pulse`} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900 dark:text-white">{f.friend?.display_name || f.friend?.email?.split('@')[0]}</p>
+                                                    <p className="text-[10px] text-gray-500 font-medium">{p?.current_course || ''}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-500">{statusLabels[p?.status] || p?.status}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )
+                    })()}
                 </Card>
             </div>
         </div>
