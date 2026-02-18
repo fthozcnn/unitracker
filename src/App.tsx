@@ -11,6 +11,8 @@ import Settings from './pages/Settings'
 import Social from './pages/Social'
 import Badges from './pages/Badges'
 import Schedule from './pages/Schedule'
+import Attendance from './pages/Attendance'
+import Grades from './pages/Grades'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const queryClient = new QueryClient()
@@ -46,6 +48,8 @@ export default function App() {
                             <Route index element={<Dashboard />} />
                             <Route path="badges" element={<Badges />} />
                             <Route path="schedule" element={<Schedule />} />
+                            <Route path="attendance" element={<Attendance />} />
+                            <Route path="grades" element={<Grades />} />
                             <Route path="courses/:id" element={<CourseDetail />} />
                             <Route path="study" element={<Study />} />
                             <Route path="calendar" element={<CalendarPage />} />

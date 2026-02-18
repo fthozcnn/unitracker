@@ -12,7 +12,8 @@ import {
     Timer,
     Users,
     Trophy,
-    CalendarDays
+    CalendarDays,
+    ClipboardList
 } from 'lucide-react'
 import clsx from 'clsx'
 import NotificationCenter from './NotificationCenter'
@@ -25,6 +26,8 @@ export default function Layout() {
     const navigation = [
         { name: 'Ana Sayfa', href: '/', icon: LayoutDashboard },
         { name: 'Ders Programı', href: '/schedule', icon: CalendarDays },
+        { name: 'Devamsızlık', href: '/attendance', icon: ClipboardList },
+        { name: 'Not Hesaplama', href: '/grades', icon: GraduationCap },
         { name: 'Rozetler', href: '/badges', icon: Trophy },
         { name: 'Çalışma Odası', href: '/study', icon: Timer },
         { name: 'Takvim', href: '/calendar', icon: Calendar },
