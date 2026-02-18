@@ -82,11 +82,11 @@ export default function StudyTimer() {
                                     setPomodoroMode('short_break')
                                     setRemainingTime(settings.shortBreak * 60)
                                 }
-                                alert('Çalışma seansı bitti! Mola vakti. ☕')
+                                setTimeout(() => alert('Çalışma seansı bitti! Mola vakti. ☕'), 100)
                             } else {
                                 setPomodoroMode('work')
                                 setRemainingTime(settings.workTime * 60)
-                                alert('Mola bitti! Odaklanma vakti. 🧠')
+                                setTimeout(() => alert('Mola bitti! Odaklanma vakti. 🧠'), 100)
                             }
                             return 0
                         }
