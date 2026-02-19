@@ -187,23 +187,35 @@ export default function Settings() {
 
         setLoading(true)
         try {
-            // Delete in order to respect foreign key constraints
-            await supabase.from('user_badges').delete().eq('user_id', user.id)
-            await supabase.from('study_sessions').delete().eq('user_id', user.id)
-            await supabase.from('course_grades').delete().eq('user_id', user.id)
-            await supabase.from('assignments').delete().eq('user_id', user.id)
+            // Delete each table and log errors individually
+            const { error: badgeErr } = await supabase.from('user_badges').delete().eq('user_id', user.id)
+            if (badgeErr) console.error('Badge delete error:', badgeErr.message, badgeErr.details)
+
+            const { error: sessionErr } = await supabase.from('study_sessions').delete().eq('user_id', user.id)
+            if (sessionErr) console.error('Session delete error:', sessionErr.message, sessionErr.details)
+
+            const { error: gradeErr } = await supabase.from('course_grades').delete().eq('user_id', user.id)
+            if (gradeErr) console.error('Grade delete error:', gradeErr.message, gradeErr.details)
+
+            const { error: assignErr } = await supabase.from('assignments').delete().eq('user_id', user.id)
+            if (assignErr) console.error('Assignment delete error:', assignErr.message, assignErr.details)
 
             // Reset XP and level
-            await supabase
+            const { error: xpErr } = await supabase
                 .from('profiles')
                 .update({ total_xp: 0, level: 1 })
                 .eq('id', user.id)
+            if (xpErr) console.error('XP reset error:', xpErr.message)
 
-            // Refresh all queries
-            await queryClient.invalidateQueries()
-            await refreshProfile()
+            const errors = [badgeErr, sessionErr, gradeErr, assignErr, xpErr].filter(Boolean)
+            if (errors.length > 0) {
+                alert('⚠️ Bazı veriler silinemedi. Tarayıcı konsolunu (F12) kontrol edin.')
+            } else {
+                alert('✅ İlerleme başarıyla sıfırlandı! Sayfa yenilenecek.')
+            }
 
-            alert('✅ İlerleme başarıyla sıfırlandı! Dersler, program ve arkadaş listeniz korundu.')
+            // Force full page reload to clear all cached data
+            window.location.reload()
         } catch (error) {
             console.error('Reset error:', error)
             alert('Sıfırlama sırasında hata oluştu.')
