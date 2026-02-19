@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, Button, Input } from '../components/ui-base'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Save, Download, Upload, Moon, Sun, Bell, BellOff } from 'lucide-react'
+import { Save, Download, Upload, Trash2, Moon, Sun, Bell, BellOff } from 'lucide-react'
 import {
     subscribeToPushNotifications,
     isPushNotificationSupported,
@@ -12,6 +13,7 @@ import {
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
+    const queryClient = useQueryClient()
     const [loading, setLoading] = useState(false)
     const [fullName, setFullName] = useState(profile?.display_name || user?.user_metadata?.full_name || '')
 
@@ -161,6 +163,55 @@ export default function Settings() {
         }
     }
 
+    const handleResetProgress = async () => {
+        if (!user) return
+
+        const confirmed = window.confirm(
+            '⚠️ DİKKAT: Bu işlem geri alınamaz!\n\n' +
+            'Silinecekler:\n' +
+            '• Tüm çalışma oturumları\n' +
+            '• Tüm rozetler ve ilerleme\n' +
+            '• XP ve seviye\n' +
+            '• Ders notları ve sınav kayıtları\n\n' +
+            'Korunacaklar:\n' +
+            '• Dersler ve ders programı\n' +
+            '• Arkadaş listesi\n' +
+            '• Profil bilgileri\n\n' +
+            'Devam etmek istiyor musunuz?'
+        )
+
+        if (!confirmed) return
+
+        const doubleConfirm = window.confirm('Son kez onaylayın: Tüm ilerleme verileriniz silinecek. Emin misiniz?')
+        if (!doubleConfirm) return
+
+        setLoading(true)
+        try {
+            // Delete in order to respect foreign key constraints
+            await supabase.from('user_badges').delete().eq('user_id', user.id)
+            await supabase.from('study_sessions').delete().eq('user_id', user.id)
+            await supabase.from('course_grades').delete().eq('user_id', user.id)
+            await supabase.from('assignments').delete().eq('user_id', user.id)
+
+            // Reset XP and level
+            await supabase
+                .from('profiles')
+                .update({ total_xp: 0, level: 1 })
+                .eq('id', user.id)
+
+            // Refresh all queries
+            await queryClient.invalidateQueries()
+            await refreshProfile()
+
+            alert('✅ İlerleme başarıyla sıfırlandı! Dersler, program ve arkadaş listeniz korundu.')
+        } catch (error) {
+            console.error('Reset error:', error)
+            alert('Sıfırlama sırasında hata oluştu.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profil ve Ayarlar</h1>
@@ -215,6 +266,24 @@ export default function Settings() {
                         </div>
                     </label>
                 </div>
+            </Card>
+
+            {/* Danger Zone - Reset Progress */}
+            <Card className="p-6 border-2 border-red-200 dark:border-red-900/50">
+                <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Tehlikeli Bölge</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                    İlerleme verilerinizi sıfırlayın. Dersler, ders programı ve arkadaş listeniz korunur.
+                    Çalışma oturumları, rozetler, XP, notlar ve sınav kayıtları silinir.
+                </p>
+                <Button
+                    variant="secondary"
+                    onClick={handleResetProgress}
+                    disabled={loading}
+                    className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
+                >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {loading ? 'Sıfırlanıyor...' : 'İlerlemeyi Sıfırla'}
+                </Button>
             </Card>
 
             {/* Bildirimler */}
