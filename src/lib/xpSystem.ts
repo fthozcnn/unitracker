@@ -2,11 +2,13 @@ import { supabase } from './supabase'
 
 // XP Rewards
 export const XP_REWARDS = {
-    STUDY_MINUTE: 2,       // Per minute studied
-    POMODORO_COMPLETE: 50,  // Completing a Pomodoro cycle
-    DAILY_STREAK: 100,     // Maintaining daily streak
+    STUDY_MINUTE: 2,        // Per minute studied
+    POMODORO_COMPLETE: 50,   // Completing a Pomodoro cycle
+    DAILY_STREAK: 100,      // Maintaining daily streak
     CHALLENGE_COMPLETE: 200, // Completing a challenge
-    SOCIAL_REACTION: 10,   // Nudge or cheer
+    SOCIAL_REACTION: 10,    // Nudge or cheer
+    BADGE_EARNED: 75,       // Earning a badge
+    FIRST_SESSION: 100,     // First ever study session
 }
 
 // Level formula: level = floor(sqrt(totalXP / 100))
@@ -29,14 +31,20 @@ export function levelProgress(xp: number): number {
 
 // Add XP to user profile
 export async function addXP(userId: string, amount: number): Promise<{ newXP: number, newLevel: number, leveledUp: boolean } | null> {
+    if (!userId || amount <= 0) return null
+
     try {
         // Get current XP
-        const { data: profile } = await supabase
+        const { data: profile, error: fetchError } = await supabase
             .from('profiles')
             .select('total_xp, level')
             .eq('id', userId)
             .single()
 
+        if (fetchError) {
+            console.error('XP fetch error:', fetchError.message)
+            return null
+        }
         if (!profile) return null
 
         const currentXP = profile.total_xp || 0
@@ -46,10 +54,17 @@ export async function addXP(userId: string, amount: number): Promise<{ newXP: nu
         const leveledUp = newLevel > currentLevel
 
         // Update profile
-        await supabase
+        const { error: updateError } = await supabase
             .from('profiles')
             .update({ total_xp: newXP, level: newLevel })
             .eq('id', userId)
+
+        if (updateError) {
+            console.error('XP update error:', updateError.message, updateError.details)
+            return null
+        }
+
+        console.log(`✅ XP awarded: +${amount} → Total: ${newXP} (Level ${newLevel})`)
 
         return { newXP, newLevel, leveledUp }
     } catch (err) {
@@ -79,8 +94,6 @@ export async function updatePresence(status: 'idle' | 'studying' | 'pomodoro' | 
 
         if (error) {
             console.error('Presence upsert error:', error)
-        } else {
-            console.log('Presence updated:', status, courseName || '')
         }
     } catch (err) {
         console.error('Presence update error:', err)

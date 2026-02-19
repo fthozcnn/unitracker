@@ -5,6 +5,7 @@ import { Button, Input } from './ui-base'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
+import { addXP, XP_REWARDS } from '../lib/xpSystem'
 
 type ManualSessionModalProps = {
     isOpen: boolean
@@ -90,12 +91,18 @@ export default function ManualSessionModal({ isOpen, onClose, editingSession }: 
                     .from('study_sessions')
                     .insert(sessionData)
                 if (error) throw error
+
+                // Award XP for manual session
+                if (formData.duration > 0) {
+                    await addXP(user.id, formData.duration * XP_REWARDS.STUDY_MINUTE)
+                }
             }
 
             await queryClient.invalidateQueries({ queryKey: ['recent_activity'] })
             await queryClient.invalidateQueries({ queryKey: ['dashboard_stats'] })
             await queryClient.invalidateQueries({ queryKey: ['analytics_weekly'] })
             await queryClient.invalidateQueries({ queryKey: ['analytics_dist'] })
+            await queryClient.invalidateQueries({ queryKey: ['profile'] })
 
             alert(editingSession ? 'Çalışma güncellendi!' : 'Çalışma kaydedildi!')
             onClose()

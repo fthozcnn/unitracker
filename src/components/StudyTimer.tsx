@@ -85,6 +85,8 @@ export default function StudyTimer() {
                                     setRemainingTime(settings.shortBreak * 60)
                                 }
                                 sendPomodoroNotification('work')
+                                // Award XP for Pomodoro completion
+                                if (user) addXP(user.id, XP_REWARDS.POMODORO_COMPLETE)
                             } else {
                                 setPomodoroMode('work')
                                 setRemainingTime(settings.workTime * 60)
@@ -164,6 +166,7 @@ export default function StudyTimer() {
             const minutesStudied = Math.floor(duration / 60)
             if (minutesStudied > 0) {
                 await addXP(user.id, minutesStudied * XP_REWARDS.STUDY_MINUTE)
+                queryClient.invalidateQueries({ queryKey: ['profile'] })
             }
 
             // Update presence

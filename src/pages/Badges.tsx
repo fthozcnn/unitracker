@@ -13,10 +13,10 @@ const CATEGORIES = [
     { id: 'social', name: 'Sosyal ve Özel', icon: Icons.Palette }
 ]
 const GET_CATEGORY = (type: string) => {
-    if (['first_course', 'gpa_calc', 'absenteeism_update', 'syllabus_add', 'set_goal', 'profile_complete'].includes(type)) return 'onboarding'
+    if (['first_course', 'gpa_calc', 'absenteeism_update', 'syllabus_add', 'set_goal', 'profile_complete', 'first_session', 'weights_complete'].includes(type)) return 'onboarding'
     if (['streak', 'marathon', 'study_hours', 'weekend_warrior'].includes(type)) return 'streak'
     if (['early_bird', 'night_owl', 'pomodoro_count', 'last_minute', 'planned_study', 'uninterrupted'].includes(type)) return 'habits'
-    if (['high_grade', 'no_fail', 'barely_pass', 'exam_week_streak', 'final_marathon', 'attendance_survival'].includes(type)) return 'academic'
+    if (['high_grade', 'no_fail', 'barely_pass', 'exam_week_streak', 'final_marathon', 'attendance_survival', 'gpa_legend'].includes(type)) return 'academic'
     return 'social'
 }
 
@@ -45,10 +45,12 @@ export default function Badges() {
     const { data: userStats } = useQuery({
         queryKey: ['user_stats_for_progress', user?.id],
         queryFn: async () => {
-            const [sessionsRes, coursesRes, profilesRes] = await Promise.all([
+            const [sessionsRes, coursesRes, profilesRes, friendsRes, challengesRes] = await Promise.all([
                 supabase.from('study_sessions').select('*').eq('user_id', user?.id).order('start_time', { ascending: false }),
                 supabase.from('courses').select('id, name').eq('user_id', user?.id),
-                supabase.from('profiles').select('*').eq('id', user?.id).single()
+                supabase.from('profiles').select('*').eq('id', user?.id).single(),
+                supabase.from('friendships').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('status', 'accepted'),
+                supabase.from('challenge_participants').select('id', { count: 'exact' }).eq('user_id', user?.id)
             ])
 
             const sessions = sessionsRes.data || []
@@ -63,12 +65,18 @@ export default function Badges() {
                 }
             }
 
+            // Pomodoro count (sessions between 20-35 min)
+            const pomodoroCount = sessions.filter(s => s.duration >= 1200 && s.duration <= 2100).length
+
             return {
                 totalHours: (sessions.reduce((acc, s) => acc + (s.duration / 3600), 0)),
                 streak,
                 coursesCount: coursesRes.data?.length || 0,
                 gpa: profilesRes.data?.gpa || 0,
-                sessionsCount: sessions.length
+                sessionsCount: sessions.length,
+                friendsCount: friendsRes.count || 0,
+                challengesCount: challengesRes.count || 0,
+                pomodoroCount,
             }
         }
     })
@@ -83,6 +91,13 @@ export default function Badges() {
             case 'first_course': return userStats.coursesCount >= 1 ? 100 : 0
             case 'first_session': return userStats.sessionsCount >= 1 ? 100 : 0
             case 'gpa_legend': return Math.min(100, (userStats.gpa / badge.criteria_value) * 100)
+            case 'friends_count': return Math.min(100, (userStats.friendsCount / badge.criteria_value) * 100)
+            case 'pomodoro_count': return Math.min(100, (userStats.pomodoroCount / badge.criteria_value) * 100)
+            case 'diverse_study': {
+                // Show progress based on max we know
+                return Math.min(100, (Math.min(userStats.coursesCount, badge.criteria_value) / badge.criteria_value) * 100)
+            }
+            case 'first_challenge': return userStats.challengesCount >= 1 ? 100 : 0
             default: return 0
         }
     }
