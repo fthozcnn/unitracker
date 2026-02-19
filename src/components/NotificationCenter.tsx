@@ -13,7 +13,7 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
     const { user } = useAuth()
     const queryClient = useQueryClient()
     const [isOpen, setIsOpen] = useState(false)
-    const initialLoadDone = useRef(false)
+    const knownIds = useRef<Set<string> | null>(null)
 
     const { data: notifications } = useQuery({
         queryKey: ['notifications'],
@@ -26,59 +26,48 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
                 .limit(20)
             return data || []
         },
-        enabled: !!user
+        enabled: !!user,
+        refetchInterval: 15000, // Poll every 15 seconds
     })
 
-    // Real-time listener for new notifications → trigger browser notification
+    // Detect new notifications and send browser alerts
     useEffect(() => {
-        if (!user) return
+        if (!notifications || notifications.length === 0) return
 
-        // Wait for initial data load before listening
-        if (!initialLoadDone.current) {
-            if (notifications) initialLoadDone.current = true
+        const currentIds = new Set(notifications.map((n: any) => n.id as string))
+
+        // First load: just remember existing IDs, don't notify
+        if (knownIds.current === null) {
+            knownIds.current = currentIds
             return
         }
 
-        const channel = supabase
-            .channel('notification_alerts')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${user.id}`
-                },
-                (payload: any) => {
-                    const n = payload.new
-                    if (!n) return
+        // Find new notifications (IDs not in knownIds)
+        const newNotifications = notifications.filter(
+            (n: any) => !knownIds.current!.has(n.id)
+        )
 
-                    // Send browser notification based on type
-                    const typeEmoji: Record<string, string> = {
-                        nudge: '👊',
-                        cheer: '🎉',
-                        friend_request: '👋',
-                        challenge_invite: '🏆',
-                        badge: '🏅',
-                    }
-                    const emoji = typeEmoji[n.type] || '🔔'
+        // Send browser notification for each new one
+        for (const n of newNotifications) {
+            const typeEmoji: Record<string, string> = {
+                nudge: '👊',
+                cheer: '🎉',
+                friend_request: '👋',
+                challenge_invite: '🏆',
+                badge: '🏅',
+            }
+            const emoji = typeEmoji[n.type] || '🔔'
 
-                    sendLocalNotification(
-                        `${emoji} ${n.title}`,
-                        n.message,
-                        { tag: `notif-${n.id}` }
-                    )
-
-                    // Refresh notification list
-                    queryClient.invalidateQueries({ queryKey: ['notifications'] })
-                }
+            sendLocalNotification(
+                `${emoji} ${n.title}`,
+                n.message,
+                { tag: `notif-${n.id}` }
             )
-            .subscribe()
-
-        return () => {
-            supabase.removeChannel(channel)
         }
-    }, [user, notifications, queryClient])
+
+        // Update known IDs
+        knownIds.current = currentIds
+    }, [notifications])
 
     const unreadCount = notifications?.filter(n => !n.is_read).length || 0
 
