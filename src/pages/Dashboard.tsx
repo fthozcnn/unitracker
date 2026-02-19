@@ -10,11 +10,15 @@ import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
 import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
 import { checkExamReminders } from '../lib/pushNotifications'
+import OnboardingWizard from '../components/OnboardingWizard'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
     useBadgeCheck()
     const [friendPresence, setFriendPresence] = useState<Record<string, { status: string, current_course: string | null }>>({})
+    const [showOnboarding, setShowOnboarding] = useState(() => {
+        return !localStorage.getItem('onboarding_completed')
+    })
 
     // Recent Badges Query
     const { data: recentBadges } = useQuery({
@@ -254,6 +258,9 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6 md:space-y-8">
+            {/* Onboarding Wizard */}
+            <OnboardingWizard isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+
             {/* Home Header & Quick Actions */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="flex-1 min-w-0">
