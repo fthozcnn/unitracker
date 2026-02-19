@@ -1,38 +1,88 @@
-# Üniversite Ders Takip Uygulaması
+# 🎓 UniTracker - Akıllı Üniversite Asistanı
 
-Bu proje, üniversite öğrencilerinin ders, çalışma, ödev ve sınav takibini kolaylaştırmak amacıyla React, Vite ve Tailwind CSS kullanılarak geliştirilmiştir.
+UniTracker, üniversite öğrencilerinin akademik hayatını organize etmesi, çalışma motivasyonunu artırması ve sosyal etkileşim kurması için geliştirilmiş kapsamlı bir PWA (Progressive Web App) uygulamasıdır.
 
-## Özellikler
+![UniTracker Banner](public/logo.png)
 
-- **Ders Yönetimi:** Derslerinizi renk kodlarıyla ekleyin ve yönetin.
-- **Çalışma Odası:** Kronometre ve Pomodoro teknikleri ile çalışma sürelerinizi kaydedin.
-- **Takvim:** Sınav ve ödev tarihlerinizi aylık takvimde görüntüleyin.
-- **Analizler:** Haftalık çalışma süreleri ve ders dağılımı grafikleri ile performansınızı izleyin.
-- **GPA Hesaplayıcı:** Dönem ortalamanızı simüle edin.
-- **Veri Yedekleme:** Verilerinizi JSON formatında dışa aktarın.
-- **Karanlık Mod:** Göz yormayan karanlık tema desteği.
+## 🚀 Öne Çıkan Özellikler
 
-## Kurulum ve Çalıştırma
+### 📚 Akademik Yönetim
+- **Ders Programı:** Haftalık ders çizelgesi oluşturma, CSV ile toplu yükleme ve JSON olarak paylaşma.
+- **Not Takibi:** Vize/Final notlarını girme, ağırlıklı ortalama ve GPA simülasyonu.
+- **Devamsızlık Takibi:** Her ders için devamsızlık sınırlarını belirleme ve takip etme.
+- **Takvim:** Sınav, ödev ve proje tarihlerini aylık görünümde takip etme ve JSON olarak indirme.
 
-1. **Bağımlılıkları Yükleyin:**
+### 🍅 Çalışma Odası & Odaklanma
+- **Pomodoro Sayacı:** Özelleştirilebilir çalışma/mola süreleri.
+- **Ambient Sesler:** Lo-fi, yağmur, doğa ve kafe sesleri ile odaklanma modu.
+- **Birlikte Çalış (Sync):** Arkadaşlarınla senkronize kronometre başlatma.
+
+### 🎮 Oyunlaştırma (Gamification)
+- **XP & Seviye Sistemi:** Çalıştıkça XP kazan, seviye atla.
+- **Rozetler:** 30+ farklı başarı rozeti (örn: "Sabah Kuşu", "Haftasonu Savaşçısı").
+- **Liderlik Tablosu:** Arkadaşlarınla haftalık çalışma sürelerini kıyasla.
+
+### 👥 Sosyal Özellikler
+- **Arkadaş Sistemi:** Arkadaş ekle, ne çalıştıklarını canlı gör.
+- **Mücadeleler (Challenges):** "Bu hafta 10 saat çalışalım" gibi hedefler koy ve yarış.
+- **Etkileşim:** Çalışan arkadaşını "dürt" veya "tezahürat" gönder.
+
+### 🛠️ Araçlar & Ayarlar
+- **Veri Yedekleme:** Tüm verileri JSON olarak içe/dışa aktar (Cihazlar arası taşıma).
+- **Onboarding:** Yeni kullanıcılar için adım adım rehber.
+- **Karanlık Mod:** Göz yormayan modern arayüz.
+- **PWA Desteği:** Mobil cihazlara uygulama olarak yüklenebilir.
+
+## 📦 Kurulum
+
+1. **Repoyu klonlayın:**
+   ```bash
+   git clone https://github.com/fthozcnn/unitracker.git
+   cd unitracker
+   ```
+
+2. **Bağımlılıkları yükleyin:**
    ```bash
    npm install
    ```
 
-2. **Geliştirme Sunucusunu Başlatın:**
+3. **Çevresel Değişkenler:**
+   `.env.local` dosyasını oluşturun ve Supabase bilgilerinizi girin:
+   ```env
+   VITE_SUPABASE_URL=your_project_url
+   VITE_SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+4. **Uygulamayı başlatın:**
    ```bash
    npm run dev
    ```
 
-3. **Supabase Ayarları:**
-   `.env.local` dosyasındaki Supabase URL ve Anon Key bilgilerinin doğru olduğundan emin olun.
+## 🗄️ Veritabanı Kurulumu (Supabase)
 
-## Teknolojiler
+Projenin tam fonksiyonlu çalışması için aşağıdaki SQL dosyalarını Supabase SQL Editor'de çalıştırın:
 
-- [React](https://react.dev/)
-- [Vite](https://vitejs.dev/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Supabase](https://supabase.com/)
-- [Recharts](https://recharts.org/)
-- [React Router](https://reactrouter.com/)
-- [TanStack Query](https://tanstack.com/query/latest)
+- `supabase_schema.sql` (Temel tablolar)
+- `supabase_social_schema.sql` (Sosyal özellikler ve rozetler)
+- `supabase_social_reactions.sql` (Tepki sistemi)
+- `supabase_reset_progress.sql` (İlerleme sıfırlama fonksiyonu)
+
+## 📱 Teknolojiler
+
+- **Frontend:** React, TypeScript, Vite
+- **Stil:** Tailwind CSS, Headless UI
+- **State Yönetimi:** TanStack Query (React Query)
+- **Backend:** Supabase (Auth, Database, Realtime)
+- **İkonlar:** Lucide React
+- **Tarih:** date-fns
+
+## 🤝 Katkıda Bulunma
+
+1. Forklayın
+2. Feature branch oluşturun (`git checkout -b feature/yeniozellik`)
+3. Commit atın (`git commit -m 'feat: yeni özellik eklendi'`)
+4. Pushlayın (`git push origin feature/yeniozellik`)
+5. Pull Request açın
+
+---
+Geliştirici: [fthozcnn](https://github.com/fthozcnn)
