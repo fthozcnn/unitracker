@@ -187,29 +187,12 @@ export default function Settings() {
 
         setLoading(true)
         try {
-            // Delete each table and log errors individually
-            const { error: badgeErr } = await supabase.from('user_badges').delete().eq('user_id', user.id)
-            if (badgeErr) console.error('Badge delete error:', badgeErr.message, badgeErr.details)
+            // Use RPC function that runs as SECURITY DEFINER to bypass RLS
+            const { error } = await supabase.rpc('reset_user_progress')
 
-            const { error: sessionErr } = await supabase.from('study_sessions').delete().eq('user_id', user.id)
-            if (sessionErr) console.error('Session delete error:', sessionErr.message, sessionErr.details)
-
-            const { error: gradeErr } = await supabase.from('course_grades').delete().eq('user_id', user.id)
-            if (gradeErr) console.error('Grade delete error:', gradeErr.message, gradeErr.details)
-
-            const { error: assignErr } = await supabase.from('assignments').delete().eq('user_id', user.id)
-            if (assignErr) console.error('Assignment delete error:', assignErr.message, assignErr.details)
-
-            // Reset XP and level
-            const { error: xpErr } = await supabase
-                .from('profiles')
-                .update({ total_xp: 0, level: 1 })
-                .eq('id', user.id)
-            if (xpErr) console.error('XP reset error:', xpErr.message)
-
-            const errors = [badgeErr, sessionErr, gradeErr, assignErr, xpErr].filter(Boolean)
-            if (errors.length > 0) {
-                alert('⚠️ Bazı veriler silinemedi. Tarayıcı konsolunu (F12) kontrol edin.')
+            if (error) {
+                console.error('Reset error:', error.message, error.details)
+                alert('⚠️ Sıfırlama hatası: ' + error.message)
             } else {
                 alert('✅ İlerleme başarıyla sıfırlandı! Sayfa yenilenecek.')
             }
