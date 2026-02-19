@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Button, Input } from '../components/ui-base'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Save, Download, Moon, Sun, Bell, BellOff } from 'lucide-react'
+import { Save, Download, Upload, Moon, Sun, Bell, BellOff } from 'lucide-react'
 import {
     subscribeToPushNotifications,
     isPushNotificationSupported,
@@ -89,6 +89,78 @@ export default function Settings() {
         }
     }
 
+    const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file || !user) return
+
+        setLoading(true)
+        try {
+            const text = await file.text()
+            const backup = JSON.parse(text)
+
+            if (!backup.data) {
+                alert('Geçersiz yedek dosyası.')
+                return
+            }
+
+            const { courses: importCourses, study_sessions: importSessions, assignments: importAssignments } = backup.data
+
+            // Track old → new course ID mapping
+            const courseIdMap: Record<string, string> = {}
+
+            // Import courses
+            if (importCourses?.length > 0) {
+                for (const course of importCourses) {
+                    const oldId = course.id
+                    const { id, created_at, ...courseData } = course
+                    const { data: inserted, error } = await supabase
+                        .from('courses')
+                        .insert({ ...courseData, user_id: user.id })
+                        .select('id')
+                        .single()
+                    if (!error && inserted) {
+                        courseIdMap[oldId] = inserted.id
+                    }
+                }
+            }
+
+            // Import study sessions with mapped course IDs
+            if (importSessions?.length > 0) {
+                const mappedSessions = importSessions.map((s: any) => {
+                    const { id, created_at, ...sessionData } = s
+                    return {
+                        ...sessionData,
+                        user_id: user.id,
+                        course_id: courseIdMap[s.course_id] || s.course_id
+                    }
+                })
+                await supabase.from('study_sessions').insert(mappedSessions)
+            }
+
+            // Import assignments with mapped course IDs
+            if (importAssignments?.length > 0) {
+                const mappedAssignments = importAssignments.map((a: any) => {
+                    const { id, created_at, ...assignmentData } = a
+                    return {
+                        ...assignmentData,
+                        user_id: user.id,
+                        course_id: courseIdMap[a.course_id] || a.course_id
+                    }
+                })
+                await supabase.from('assignments').insert(mappedAssignments)
+            }
+
+            const totalImported = (importCourses?.length || 0) + (importSessions?.length || 0) + (importAssignments?.length || 0)
+            alert(`✅ Veri yükleme başarılı!\n\n${importCourses?.length || 0} ders\n${importSessions?.length || 0} çalışma oturumu\n${importAssignments?.length || 0} görev/sınav\n\nToplam ${totalImported} kayıt yüklendi.`)
+        } catch (error) {
+            console.error('Import error:', error)
+            alert('Veri yükleme sırasında hata oluştu. Dosya formatını kontrol edin.')
+        } finally {
+            setLoading(false)
+            e.target.value = '' // Reset file input
+        }
+    }
+
     return (
         <div className="max-w-2xl mx-auto space-y-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profil ve Ayarlar</h1>
@@ -122,14 +194,26 @@ export default function Settings() {
             <Card className="p-6">
                 <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Veri Yönetimi</h2>
                 <p className="text-sm text-gray-500 mb-4">
-                    Tüm verilerinizi JSON formatında indirebilirsiniz. Bu dosya yedekleme amaçlı kullanılabilir.
+                    Verilerinizi JSON formatında yedekleyebilir veya daha önce aldığınız yedeği geri yükleyebilirsiniz.
                 </p>
-                <div className="flex space-x-4">
+                <div className="flex flex-wrap gap-3">
                     <Button variant="secondary" onClick={handleExportData} disabled={loading}>
                         <Download className="h-4 w-4 mr-2" />
                         Verileri İndir (Yedekle)
                     </Button>
-                    {/* Import feature could be added here later */}
+                    <label className="cursor-pointer">
+                        <input
+                            type="file"
+                            accept=".json"
+                            className="hidden"
+                            onChange={handleImportData}
+                            disabled={loading}
+                        />
+                        <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-800/40 transition-colors cursor-pointer">
+                            <Upload className="h-4 w-4 mr-2" />
+                            {loading ? 'Yükleniyor...' : 'Veri Yükle (Geri Yükle)'}
+                        </div>
+                    </label>
                 </div>
             </Card>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, format, isSameMonth, isSameDay, addMonths, subMonths, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Clock, AlertCircle, Download } from 'lucide-react'
 import { Button, Card } from '../components/ui-base'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -92,10 +92,44 @@ export default function CalendarPage() {
                     <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Takvim</h1>
                     <p className="text-sm font-medium text-gray-500">Önemli tarihler ve geri sayımlar.</p>
                 </div>
-                <Button onClick={() => { setSelectedDate(new Date()); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-5 w-5 mr-2" />
-                    Yeni Görev Ekle
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="secondary"
+                        onClick={() => {
+                            if (!assignments || assignments.length === 0) {
+                                alert('İndirilecek takvim verisi bulunamadı.')
+                                return
+                            }
+                            const exportData = {
+                                title: 'Akademik Takvim',
+                                exported_at: new Date().toISOString(),
+                                assignments: assignments.map((a: any) => ({
+                                    title: a.title,
+                                    type: a.type === 'exam' ? 'Sınav' : a.type === 'project' ? 'Proje' : a.type === 'homework' ? 'Ödev' : a.type,
+                                    course: a.courses?.name || '',
+                                    due_date: a.due_date,
+                                    description: a.description || ''
+                                }))
+                            }
+                            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = `takvim-${format(currentDate, 'yyyy-MM')}.json`
+                            document.body.appendChild(a)
+                            a.click()
+                            document.body.removeChild(a)
+                            URL.revokeObjectURL(url)
+                        }}
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        Takvimi İndir
+                    </Button>
+                    <Button onClick={() => { setSelectedDate(new Date()); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="h-5 w-5 mr-2" />
+                        Yeni Görev Ekle
+                    </Button>
+                </div>
             </div>
 
             {/* Countdown Cards section */}

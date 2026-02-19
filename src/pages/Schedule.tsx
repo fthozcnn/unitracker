@@ -465,6 +465,39 @@ export default function Schedule() {
                 <div className="flex flex-wrap gap-3 justify-center">
                     <Button
                         variant="secondary"
+                        onClick={() => {
+                            if (!schedule || schedule.length === 0) {
+                                alert('İndirilecek ders programı bulunamadı.')
+                                return
+                            }
+                            const exportData = {
+                                title: 'Ders Programı',
+                                exported_at: new Date().toISOString(),
+                                schedule: schedule.map((item: any) => ({
+                                    course: item.courses?.name || 'Bilinmeyen',
+                                    day: DAYS.find(d => d.id === item.day_of_week)?.name || '',
+                                    start_time: item.start_time,
+                                    end_time: item.end_time,
+                                    room: item.room || ''
+                                }))
+                            }
+                            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+                            const url = URL.createObjectURL(blob)
+                            const a = document.createElement('a')
+                            a.href = url
+                            a.download = `ders-programi-${new Date().toISOString().split('T')[0]}.json`
+                            document.body.appendChild(a)
+                            a.click()
+                            document.body.removeChild(a)
+                            URL.revokeObjectURL(url)
+                        }}
+                        className="flex-1 md:flex-none"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        Programı İndir
+                    </Button>
+                    <Button
+                        variant="secondary"
                         onClick={downloadTemplate}
                         className="flex-1 md:flex-none"
                     >
