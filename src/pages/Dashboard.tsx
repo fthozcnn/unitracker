@@ -9,6 +9,7 @@ import { format, isSameDay, subDays, subMonths, eachDayOfInterval, differenceInD
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
 import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
+import { checkExamReminders } from '../lib/pushNotifications'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
@@ -238,6 +239,18 @@ export default function Dashboard() {
 
         return () => { supabase.removeChannel(channel) }
     }, [friends])
+
+    // Exam reminder notifications
+    useEffect(() => {
+        if (upcomingExams && upcomingExams.length > 0) {
+            const examsForReminder = upcomingExams.map((exam: any) => ({
+                title: exam.title,
+                course_name: exam.courses?.name || 'Ders',
+                due_date: exam.due_date
+            }))
+            checkExamReminders(examsForReminder)
+        }
+    }, [upcomingExams])
 
     return (
         <div className="space-y-6 md:space-y-8">

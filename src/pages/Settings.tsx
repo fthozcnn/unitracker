@@ -5,33 +5,23 @@ import { supabase } from '../lib/supabase'
 import { Save, Download, Moon, Sun, Bell, BellOff } from 'lucide-react'
 import {
     subscribeToPushNotifications,
-    unsubscribeFromPushNotifications,
     isPushNotificationSupported,
     getNotificationPermission,
-    isSubscribedToPush
+    sendLocalNotification
 } from '../lib/pushNotifications'
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [fullName, setFullName] = useState(profile?.display_name || user?.user_metadata?.full_name || '')
-    const [pushEnabled, setPushEnabled] = useState(false)
+
     const [pushSupported, setPushSupported] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
 
     useEffect(() => {
-        // Check push notification support and status
-        const checkPushStatus = async () => {
-            const supported = isPushNotificationSupported()
-            setPushSupported(supported)
-            setNotificationPermission(getNotificationPermission())
-
-            if (supported) {
-                const subscribed = await isSubscribedToPush()
-                setPushEnabled(subscribed)
-            }
-        }
-        checkPushStatus()
+        const supported = isPushNotificationSupported()
+        setPushSupported(supported)
+        setNotificationPermission(getNotificationPermission())
     }, [])
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -143,16 +133,16 @@ export default function Settings() {
                 </div>
             </Card>
 
-            {/* Push Notifications */}
+            {/* Bildirimler */}
             <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Bildirimler</h2>
                         <p className="text-sm text-gray-500 mt-1">
-                            Uygulama kapalıyken bile bildirim al
+                            Sınav hatırlatmaları ve çalışma bildirimleri
                         </p>
                     </div>
-                    {pushEnabled ? (
+                    {notificationPermission === 'granted' ? (
                         <Bell className="h-6 w-6 text-blue-600" />
                     ) : (
                         <BellOff className="h-6 w-6 text-gray-400" />
@@ -162,7 +152,7 @@ export default function Settings() {
                 {!pushSupported ? (
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                         <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            ⚠️ <strong>iOS Kullanıcıları:</strong> Apple PWA push bildirimlerini desteklemiyor. Uygulama içi bildirimler çalışmaya devam eder.
+                            ⚠️ Bu tarayıcı masaüstü bildirimlerini desteklemiyor.
                         </p>
                     </div>
                 ) : notificationPermission === 'denied' ? (
@@ -170,55 +160,60 @@ export default function Settings() {
                         <p className="text-sm text-red-800 dark:text-red-200">
                             🚫 <strong>Bildirimler Engellendi:</strong> Tarayıcı ayarlarından bildirim iznini etkinleştirmeniz gerekiyor.
                         </p>
+                        <p className="text-xs text-red-600 dark:text-red-300 mt-2">
+                            Adres çubuğundaki 🔒 simgesine tıklayıp "Bildirimler" iznini "İzin Ver" olarak değiştirin.
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-700 dark:text-gray-300">
-                                {pushEnabled ? 'Bildirimler aktif' : 'Bildirimler kapalı'}
+                                {notificationPermission === 'granted' ? '✅ Bildirimler aktif' : 'Bildirimler kapalı'}
                             </span>
-                            <Button
-                                variant={pushEnabled ? 'ghost' : 'primary'}
-                                onClick={async () => {
-                                    setLoading(true)
-                                    try {
-                                        if (pushEnabled) {
-                                            const success = await unsubscribeFromPushNotifications(user?.id || '')
-                                            if (success) {
-                                                setPushEnabled(false)
-                                                alert('Bildirimler kapatıldı')
-                                            }
-                                        } else {
-                                            const success = await subscribeToPushNotifications(user?.id || '')
-                                            if (success) {
-                                                setPushEnabled(true)
-                                                setNotificationPermission(getNotificationPermission())
+                            {notificationPermission !== 'granted' ? (
+                                <Button
+                                    variant="primary"
+                                    onClick={async () => {
+                                        setLoading(true)
+                                        try {
+                                            const result = await subscribeToPushNotifications(user?.id || '')
+                                            setNotificationPermission(getNotificationPermission())
+                                            if (result) {
                                                 alert('Bildirimler aktif edildi! 🔔')
                                             } else {
-                                                alert('Bildirim izni verilmedi veya bir hata oluştu')
+                                                alert('Bildirim izni verilmedi')
                                             }
+                                        } catch (error) {
+                                            console.error(error)
+                                            alert('Bir hata oluştu')
+                                        } finally {
+                                            setLoading(false)
                                         }
-                                    } catch (error) {
-                                        console.error(error)
-                                        alert('Bir hata oluştu')
-                                    } finally {
-                                        setLoading(false)
-                                    }
-                                }}
-                                disabled={loading}
-                            >
-                                {pushEnabled ? (
-                                    <><BellOff className="h-4 w-4 mr-2" /> Bildirimleri Kapat</>
-                                ) : (
-                                    <><Bell className="h-4 w-4 mr-2" /> Bildirimleri Aç</>
-                                )}
-                            </Button>
+                                    }}
+                                    disabled={loading}
+                                >
+                                    <Bell className="h-4 w-4 mr-2" /> Bildirimleri Aç
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        sendLocalNotification(
+                                            '🔔 Test Bildirimi',
+                                            'UniTracker bildirimleri çalışıyor!',
+                                            { tag: 'test' }
+                                        )
+                                    }}
+                                >
+                                    🔔 Test Bildirimi Gönder
+                                </Button>
+                            )}
                         </div>
 
-                        {pushEnabled && (
+                        {notificationPermission === 'granted' && (
                             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
                                 <p className="text-xs text-green-800 dark:text-green-200">
-                                    ✅ Arkadaş istekleri, dürtmeler ve ödev hatırlatmaları için bildirim alacaksınız.
+                                    ✅ Pomodoro bitişi, çalışma tamamlanması ve sınav hatırlatmaları için bildirim alacaksınız.
                                 </p>
                             </div>
                         )}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -7,11 +7,13 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import clsx from 'clsx'
+import { sendLocalNotification } from '../lib/pushNotifications'
 
 export default function NotificationCenter({ position = 'right' }: { position?: 'left' | 'right' }) {
     const { user } = useAuth()
     const queryClient = useQueryClient()
     const [isOpen, setIsOpen] = useState(false)
+    const initialLoadDone = useRef(false)
 
     const { data: notifications } = useQuery({
         queryKey: ['notifications'],
@@ -26,6 +28,57 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
         },
         enabled: !!user
     })
+
+    // Real-time listener for new notifications → trigger browser notification
+    useEffect(() => {
+        if (!user) return
+
+        // Wait for initial data load before listening
+        if (!initialLoadDone.current) {
+            if (notifications) initialLoadDone.current = true
+            return
+        }
+
+        const channel = supabase
+            .channel('notification_alerts')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload: any) => {
+                    const n = payload.new
+                    if (!n) return
+
+                    // Send browser notification based on type
+                    const typeEmoji: Record<string, string> = {
+                        nudge: '👊',
+                        cheer: '🎉',
+                        friend_request: '👋',
+                        challenge_invite: '🏆',
+                        badge: '🏅',
+                    }
+                    const emoji = typeEmoji[n.type] || '🔔'
+
+                    sendLocalNotification(
+                        `${emoji} ${n.title}`,
+                        n.message,
+                        { tag: `notif-${n.id}` }
+                    )
+
+                    // Refresh notification list
+                    queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [user, notifications, queryClient])
 
     const unreadCount = notifications?.filter(n => !n.is_read).length || 0
 
@@ -100,10 +153,10 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
                                     <div
                                         key={n.id}
                                         className={`p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${!n.is_read
-                                                ? n.type === 'nudge' ? 'bg-orange-50/50 dark:bg-orange-900/10'
-                                                    : n.type === 'cheer' ? 'bg-green-50/50 dark:bg-green-900/10'
-                                                        : 'bg-blue-50/50 dark:bg-blue-900/10'
-                                                : ''
+                                            ? n.type === 'nudge' ? 'bg-orange-50/50 dark:bg-orange-900/10'
+                                                : n.type === 'cheer' ? 'bg-green-50/50 dark:bg-green-900/10'
+                                                    : 'bg-blue-50/50 dark:bg-blue-900/10'
+                                            : ''
                                             }`}
                                     >
                                         <div className="flex items-start justify-between gap-3">

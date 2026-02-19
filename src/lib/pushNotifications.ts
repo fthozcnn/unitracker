@@ -1,44 +1,151 @@
-import { supabase } from './supabase'
+// Local Notification System - Browser Notification API
+// Push API yerine yerel bildirim sistemi (localhost'ta ve HTTPS'te çalışır)
 
-// VAPID public key - will be set in environment variables
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BNxJvXhF8Q3K5L9mPqRsTuVwXyZ0AbCdEfGhIjKlMnOpQrStUvWxYz'
-
-// Convert base64 string to Uint8Array
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4)
-    const base64 = (base64String + padding)
-        .replace(/-/g, '+')
-        .replace(/_/g, '/')
-
-    const rawData = window.atob(base64)
-    const outputArray = new Uint8Array(rawData.length)
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i)
-    }
-    return outputArray
+// Check if notifications are supported
+export function isNotificationSupported(): boolean {
+    return 'Notification' in window
 }
 
-// Check if push notifications are supported
-export function isPushNotificationSupported(): boolean {
-    return 'serviceWorker' in navigator && 'PushManager' in window
+// Get current permission status
+export function getNotificationPermission(): NotificationPermission {
+    if (!isNotificationSupported()) {
+        return 'denied'
+    }
+    return Notification.permission
 }
 
 // Request notification permission
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
-    if (!('Notification' in window)) {
-        console.log('This browser does not support notifications')
+    if (!isNotificationSupported()) {
+        console.warn('Bu tarayıcı bildirimleri desteklemiyor')
         return 'denied'
     }
 
-    const permission = await Notification.requestPermission()
-    return permission
+    try {
+        const permission = await Notification.requestPermission()
+        console.log('Bildirim izni:', permission)
+        return permission
+    } catch (error) {
+        console.error('Bildirim izni istenirken hata:', error)
+        return 'denied'
+    }
 }
 
-// Register service worker
+// Send a local notification
+export function sendLocalNotification(
+    title: string,
+    body: string,
+    options?: {
+        icon?: string
+        tag?: string
+        data?: Record<string, unknown>
+        requireInteraction?: boolean
+    }
+): Notification | null {
+    if (!isNotificationSupported()) {
+        console.warn('Bildirimler desteklenmiyor')
+        return null
+    }
+
+    if (Notification.permission !== 'granted') {
+        console.warn('Bildirim izni verilmemiş')
+        return null
+    }
+
+    try {
+        const notification = new Notification(title, {
+            body,
+            icon: options?.icon || '/unitracker_app_icon.png',
+            tag: options?.tag || 'unitracker-notification',
+            requireInteraction: options?.requireInteraction || false,
+        })
+
+        notification.onclick = () => {
+            window.focus()
+            notification.close()
+        }
+
+        return notification
+    } catch (error) {
+        console.error('Bildirim gönderme hatası:', error)
+        return null
+    }
+}
+
+// Send study completion notification
+export function sendStudyCompleteNotification(courseName: string, duration: number) {
+    const minutes = Math.round(duration / 60)
+    sendLocalNotification(
+        '🎉 Çalışma tamamlandı!',
+        `${courseName} için ${minutes} dakika çalıştınız. Harika iş!`,
+        { tag: 'study-complete' }
+    )
+}
+
+// Send pomodoro notification
+export function sendPomodoroNotification(type: 'work' | 'break') {
+    if (type === 'work') {
+        sendLocalNotification(
+            '🍅 Pomodoro tamamlandı!',
+            'Harika iş! Şimdi mola zamanı. ☕',
+            { tag: 'pomodoro', requireInteraction: true }
+        )
+    } else {
+        sendLocalNotification(
+            '⏰ Mola bitti!',
+            'Çalışmaya geri dönme zamanı! 💪',
+            { tag: 'pomodoro', requireInteraction: true }
+        )
+    }
+}
+
+// Send exam reminder notification
+export function sendExamReminderNotification(examName: string, courseName: string, daysLeft: number) {
+    const urgency = daysLeft <= 1 ? '🚨' : daysLeft <= 3 ? '⚠️' : '📅'
+    const dayText = daysLeft === 0 ? 'bugün' : daysLeft === 1 ? 'yarın' : `${daysLeft} gün sonra`
+
+    sendLocalNotification(
+        `${urgency} Sınav Hatırlatması`,
+        `${courseName} - ${examName} ${dayText}!`,
+        { tag: `exam-${examName}`, requireInteraction: daysLeft <= 1 }
+    )
+}
+
+// Check and send exam reminders (called on Dashboard load)
+export function checkExamReminders(exams: Array<{ title: string; course_name: string; due_date: string }>) {
+    if (Notification.permission !== 'granted') return
+
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    // Check if we already sent reminders today
+    const lastReminderDate = localStorage.getItem('unitracker_last_exam_reminder')
+    const todayStr = today.toISOString().split('T')[0]
+    if (lastReminderDate === todayStr) return
+
+    let sentAny = false
+    for (const exam of exams) {
+        const examDate = new Date(exam.due_date)
+        const examDay = new Date(examDate.getFullYear(), examDate.getMonth(), examDate.getDate())
+        const diffTime = examDay.getTime() - today.getTime()
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        // Send notifications for exams within 3 days
+        if (daysLeft >= 0 && daysLeft <= 3) {
+            sendExamReminderNotification(exam.title, exam.course_name, daysLeft)
+            sentAny = true
+        }
+    }
+
+    if (sentAny) {
+        localStorage.setItem('unitracker_last_exam_reminder', todayStr)
+    }
+}
+
+// Register service worker (for PWA only - no push subscription)
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) {
-        console.log('Service workers are not supported')
+        console.log('Service worker desteklenmiyor')
         return null
     }
 
@@ -46,123 +153,24 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
         const registration = await navigator.serviceWorker.register('/sw.js', {
             scope: '/'
         })
-        console.log('Service Worker registered successfully:', registration)
+        console.log('Service Worker kayıtlı:', registration)
         return registration
     } catch (error) {
-        console.error('Service Worker registration failed:', error)
+        console.error('Service Worker kaydı başarısız:', error)
         return null
     }
 }
 
-// Subscribe to push notifications
-export async function subscribeToPushNotifications(userId: string): Promise<boolean> {
-    try {
-        // Check if already supported
-        if (!isPushNotificationSupported()) {
-            console.log('Push notifications not supported')
-            return false
-        }
-
-        // Request permission
-        const permission = await requestNotificationPermission()
-        if (permission !== 'granted') {
-            console.log('Notification permission denied')
-            return false
-        }
-
-        // Register service worker
-        let registration = await navigator.serviceWorker.ready
-        if (!registration) {
-            const reg = await registerServiceWorker()
-            if (!reg) {
-                console.log('Failed to register service worker')
-                return false
-            }
-            registration = reg
-        }
-
-        // Subscribe to push
-        const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: applicationServerKey as any
-        })
-
-        // Save subscription to Supabase
-        const subscriptionData = subscription.toJSON()
-        const { error } = await supabase
-            .from('push_subscriptions')
-            .upsert({
-                user_id: userId,
-                subscription: subscriptionData,
-                user_agent: navigator.userAgent
-            }, {
-                onConflict: 'user_id'
-            })
-
-        if (error) {
-            console.error('Failed to save subscription:', error)
-            return false
-        }
-
-        console.log('Successfully subscribed to push notifications')
-        return true
-    } catch (error) {
-        console.error('Error subscribing to push notifications:', error)
-        return false
-    }
+// Legacy exports for backward compatibility
+export const isPushNotificationSupported = isNotificationSupported
+export async function subscribeToPushNotifications(_userId: string): Promise<boolean> {
+    const permission = await requestNotificationPermission()
+    return permission === 'granted'
 }
-
-// Unsubscribe from push notifications
-export async function unsubscribeFromPushNotifications(userId: string): Promise<boolean> {
-    try {
-        const registration = await navigator.serviceWorker.ready
-        const subscription = await registration.pushManager.getSubscription()
-
-        if (subscription) {
-            await subscription.unsubscribe()
-        }
-
-        // Remove from database
-        const { error } = await supabase
-            .from('push_subscriptions')
-            .delete()
-            .eq('user_id', userId)
-
-        if (error) {
-            console.error('Failed to remove subscription from database:', error)
-            return false
-        }
-
-        console.log('Successfully unsubscribed from push notifications')
-        return true
-    } catch (error) {
-        console.error('Error unsubscribing from push notifications:', error)
-        return false
-    }
+export async function unsubscribeFromPushNotifications(_userId: string): Promise<boolean> {
+    // No-op — local notifications don't have subscriptions
+    return true
 }
-
-// Check if user is subscribed
 export async function isSubscribedToPush(): Promise<boolean> {
-    try {
-        if (!isPushNotificationSupported()) {
-            return false
-        }
-
-        const registration = await navigator.serviceWorker.ready
-        const subscription = await registration.pushManager.getSubscription()
-
-        return subscription !== null
-    } catch (error) {
-        console.error('Error checking push subscription:', error)
-        return false
-    }
-}
-
-// Get current notification permission status
-export function getNotificationPermission(): NotificationPermission {
-    if (!('Notification' in window)) {
-        return 'denied'
-    }
-    return Notification.permission
+    return Notification.permission === 'granted'
 }

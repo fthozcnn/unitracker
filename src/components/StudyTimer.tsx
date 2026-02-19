@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addXP, updatePresence, XP_REWARDS } from '../lib/xpSystem'
+import { sendPomodoroNotification, sendStudyCompleteNotification } from '../lib/pushNotifications'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -83,11 +84,11 @@ export default function StudyTimer() {
                                     setPomodoroMode('short_break')
                                     setRemainingTime(settings.shortBreak * 60)
                                 }
-                                setTimeout(() => alert('Çalışma seansı bitti! Mola vakti. ☕'), 100)
+                                sendPomodoroNotification('work')
                             } else {
                                 setPomodoroMode('work')
                                 setRemainingTime(settings.workTime * 60)
-                                setTimeout(() => alert('Mola bitti! Odaklanma vakti. 🧠'), 100)
+                                sendPomodoroNotification('break')
                             }
                             return 0
                         }
@@ -167,6 +168,10 @@ export default function StudyTimer() {
 
             // Update presence
             updatePresence('idle')
+
+            // Send desktop notification
+            const courseName = courses?.find((c: any) => c.id === selectedCourseId)?.name
+            sendStudyCompleteNotification(courseName || 'Ders', duration)
 
             alert('Çalışma başarıyla kaydedildi! 🎉')
             if (mode === 'stopwatch') {
