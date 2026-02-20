@@ -261,24 +261,6 @@ export default function Settings() {
                 </div>
             </Card>
 
-            {/* Danger Zone - Reset Progress */}
-            <Card className="p-6 border-2 border-red-200 dark:border-red-900/50">
-                <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Tehlikeli Bölge</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                    İlerleme verilerinizi sıfırlayın. Dersler, ders programı ve arkadaş listeniz korunur.
-                    Çalışma oturumları, rozetler, XP, notlar ve sınav kayıtları silinir.
-                </p>
-                <Button
-                    variant="secondary"
-                    onClick={handleResetProgress}
-                    disabled={loading}
-                    className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
-                >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    {loading ? 'Sıfırlanıyor...' : 'İlerlemeyi Sıfırla'}
-                </Button>
-            </Card>
-
             {/* Bildirimler */}
             <Card className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -370,20 +352,36 @@ export default function Settings() {
 
             {/* Appearance */}
             <Card className="p-6">
-                <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Görünüm</h2>
-                <p className="text-sm text-gray-500 mb-4">
-                    Sistem temanıza göre otomatik olarak ayarlanır. (Tailwind dark mode 'class' strategy kullanıyorsa toggle gerekir, şu an sistem veya manual class ekleme ile çalışır.)
-                </p>
-                <div className="flex space-x-2">
-                    <Button variant="secondary" onClick={() => document.documentElement.classList.remove('dark')}>
-                        <Sun className="h-4 w-4 mr-2" />
-                        Aydınlık
-                    </Button>
-                    <Button variant="secondary" onClick={() => document.documentElement.classList.add('dark')}>
-                        <Moon className="h-4 w-4 mr-2" />
-                        Karanlık
-                    </Button>
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                        <Sun className="h-6 w-6 text-blue-500 hidden dark:block" />
+                        <Moon className="h-6 w-6 text-blue-500 block dark:hidden" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Görünüm Seçenekleri</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                            UniTracker'ın renk teması, işletim sisteminizin temasına göre (Aydınlık/Karanlık) otomatik olarak ayarlanmaktadır.
+                        </p>
+                    </div>
                 </div>
+            </Card>
+
+            {/* Danger Zone - Reset Progress */}
+            <Card className="p-6 border-2 border-red-200 dark:border-red-900/50">
+                <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Tehlikeli Bölge</h2>
+                <p className="text-sm text-gray-500 mb-4">
+                    İlerleme verilerinizi sıfırlayın. Dersler, ders programı ve arkadaş listeniz korunur.
+                    Çalışma oturumları, rozetler, XP, notlar ve sınav kayıtları silinir.
+                </p>
+                <Button
+                    variant="secondary"
+                    onClick={handleResetProgress}
+                    disabled={loading}
+                    className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
+                >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {loading ? 'Sıfırlanıyor...' : 'İlerlemeyi Sıfırla'}
+                </Button>
             </Card>
         </div>
     )
