@@ -260,11 +260,11 @@ INSERT INTO badges (name, description, icon, color, criteria_type, criteria_valu
 ('Devamsızlık Sınırında', 'Devamsızlık sınırındayken dersi geçmeyi başardın.', 'AlertCircle', 'rose', 'attendance_survival', 1),
 
 -- 5. Sosyal ve Özel (Extra & Fun)
-('Paylaşımcı', 'Çalışma istatistiğini bir platformda paylaştın.', 'Share2', 'blue', 'share_stats', 1),
-('Kütüphane Müdavimi', 'Kütüphanede çalışma oturumu gerçekleştirdin.', 'Library', 'amber', 'library_study', 1),
+('Tam Gaz', 'Bir hafta içinde (7 gün) toplam 20 saat çalıştın!', 'Rocket', 'blue', 'weekly_marathon', 20),
+('Odak Ustası', 'Toplam 10 kesintisiz Pomodoro (en az 25dk) tamamladın.', 'Brain', 'emerald', 'focus_master', 10),
 ('Geri Dönüş', 'Uygulamayı 1 hafta sonra tekrar kullandın.', 'RefreshCw', 'cyan', 'return_user', 1),
-('Ders Kurdu', 'Bir gün içinde 5 farklı ders için çalışma kaydettin.', 'Book', 'purple', 'diverse_study', 5),
-('Not Avcısı', 'Tüm derslerin not ağırlıklarını eksiksiz girdin.', 'FileText', 'indigo', 'weights_complete', 1),
+('Çok Yönlü', 'Aynı gün içinde 3 farklı derse çalıştın.', 'Book', 'purple', 'diverse_study', 3),
+('Not Avcısı', 'Sistemde en az 3 farklı sınav/ödev notu kaydettin.', 'FileText', 'indigo', 'grades_logged', 3),
 ('Efsanevi Dönem', 'Dönem ortalamasını (GPA) 3.50 ve üzerine çıkardın.', 'Star', 'yellow', 'gpa_legend', 3.5);
 
 -- 8. Weekly Schedule Table

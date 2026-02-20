@@ -1,16 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
-import fs from 'fs'
+import * as dotenv from 'dotenv'
+import { join } from 'path'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
 
-const envFile = fs.readFileSync('.env.local', 'utf8')
-const env = Object.fromEntries(
-    envFile.split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#'))
-        .map(line => line.split('='))
-)
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-const supabaseUrl = env.VITE_SUPABASE_URL
-const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY
+dotenv.config({ path: join(__dirname, '.env.local') })
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Missing env vars')
+    process.exit(1)
+}
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -22,7 +27,7 @@ async function checkBadges() {
         return
     }
 
-    console.log(`Found ${data.length} badges in the database:\n`)
+    console.log(`Found ${data.length} badges in the database:`)
     const counts = {}
     data.forEach(b => {
         const key = `${b.criteria_type}_${b.criteria_value}`
@@ -34,10 +39,6 @@ async function checkBadges() {
     Object.keys(counts).forEach(k => {
         if (counts[k] > 1) {
             console.log(k, counts[k], 'times')
-            // Print the badges that match this criteria
-            data.filter(b => `${b.criteria_type}_${b.criteria_value}` === k).forEach(b => {
-                console.log(`   -> [${b.id}] ${b.name}`)
-            })
         }
     })
 }

@@ -171,6 +171,12 @@ export function useBadgeCheck() {
                     (c.absences || 0) >= Math.floor((c.attendance_limit || 14) * 0.7)
                 )
 
+                // Grades logged: count of assignments/exams with a registered grade
+                const scoredAssignments = assignments.filter(a => a.grade != null && a.grade > 0).length
+
+                // Focus master: 10 uninterrupted pomodoros
+                const focusMasterSessions = sessions.filter(s => s.duration >= 1500).length
+
                 // ─── Badge Evaluation ───
                 const badgesToAward: string[] = []
 
@@ -202,11 +208,9 @@ export function useBadgeCheck() {
                         case 'first_session':
                             shouldAward = sessions.length >= 1
                             break
-                        case 'weights_complete':
-                            // Not ağırlıkları: en az 1 ders için syllabus eklenmiş ve profil dolu
-                            shouldAward = courses.length >= 1 && courses.some(c =>
-                                Array.isArray(c.syllabus) && c.syllabus.length > 0 && c.credit > 0
-                            )
+                        case 'grades_logged':
+                            // En az 3 sinav/odev notu kaydedilmis olsun
+                            shouldAward = scoredAssignments >= badge.criteria_value
                             break
 
                         // Streak & Duration
@@ -218,6 +222,10 @@ export function useBadgeCheck() {
                             break
                         case 'marathon':
                             shouldAward = hasMarathon
+                            break
+                        case 'weekly_marathon':
+                            // Bir haftada 20 veya daha fazla saat
+                            shouldAward = hasFinalMarathon || Object.values(weekMap).some(h => h >= badge.criteria_value)
                             break
                         case 'weekend_warrior':
                             shouldAward = hasWeekendSession
@@ -238,6 +246,9 @@ export function useBadgeCheck() {
                             break
                         case 'uninterrupted':
                             shouldAward = hasUninterrupted
+                            break
+                        case 'focus_master':
+                            shouldAward = focusMasterSessions >= badge.criteria_value
                             break
                         case 'last_minute':
                             shouldAward = hasLastMinute
@@ -278,16 +289,6 @@ export function useBadgeCheck() {
                             break
                         case 'first_challenge':
                             shouldAward = challengeCount >= 1
-                            break
-                        case 'share_stats':
-                            // Paylaşım takibi yok, profil + arkadaş varsa ödül
-                            shouldAward = friendCount >= 1 && sessions.length >= 5
-                            break
-                        case 'library_study':
-                            // Kütüphane takibi yok, not alanında "kütüphane" varsa
-                            shouldAward = sessions.some(s =>
-                                s.note && (s.note.toLowerCase().includes('kütüphane') || s.note.toLowerCase().includes('library'))
-                            )
                             break
                     }
 
