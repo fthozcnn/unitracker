@@ -1,24 +1,44 @@
-// Local Notification System - Browser Notification API
-// Push API yerine yerel bildirim sistemi (localhost'ta ve HTTPS'te çalışır)
+import { Capacitor } from '@capacitor/core'
+import { LocalNotifications } from '@capacitor/local-notifications'
 
 // Check if notifications are supported
 export function isNotificationSupported(): boolean {
-    return 'Notification' in window
+    return Capacitor.isNativePlatform() || 'Notification' in window
 }
 
 // Get current permission status
-export function getNotificationPermission(): NotificationPermission {
-    if (!isNotificationSupported()) {
-        return 'denied'
+export async function getNotificationPermission(): Promise<NotificationPermission> {
+    if (Capacitor.isNativePlatform()) {
+        try {
+            const { display } = await LocalNotifications.checkPermissions()
+            if (display === 'granted') return 'granted'
+            if (display === 'denied') return 'denied'
+            return 'default'
+        } catch {
+            return 'default'
+        }
     }
+    if (!('Notification' in window)) return 'denied'
     return Notification.permission
 }
 
 // Request notification permission
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
     if (!isNotificationSupported()) {
-        console.warn('Bu tarayıcı bildirimleri desteklemiyor')
+        console.warn('Bu cihaz bildirimleri desteklemiyor')
         return 'denied'
+    }
+
+    if (Capacitor.isNativePlatform()) {
+        try {
+            const { display } = await LocalNotifications.requestPermissions()
+            if (display === 'granted') return 'granted'
+            if (display === 'denied') return 'denied'
+            return 'default'
+        } catch (error) {
+            console.error('Bildirim izni istenirken hata:', error)
+            return 'denied'
+        }
     }
 
     try {
@@ -31,8 +51,8 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
     }
 }
 
-// Send a local notification
-export function sendLocalNotification(
+// Send a local notification (now async)
+export async function sendLocalNotification(
     title: string,
     body: string,
     options?: {
@@ -41,16 +61,35 @@ export function sendLocalNotification(
         data?: Record<string, unknown>
         requireInteraction?: boolean
     }
-): Notification | null {
-    if (!isNotificationSupported()) {
-        console.warn('Bildirimler desteklenmiyor')
-        return null
+): Promise<any> {
+    if (!isNotificationSupported()) return null
+
+    if (Capacitor.isNativePlatform()) {
+        const perm = await getNotificationPermission()
+        if (perm !== 'granted') return null
+
+        try {
+            const id = Math.floor(Math.random() * 100000)
+            await LocalNotifications.schedule({
+                notifications: [
+                    {
+                        title,
+                        body,
+                        id,
+                        extra: options?.data,
+                        smallIcon: options?.icon?.includes('unitracker') ? 'ic_stat_name' : undefined
+                    }
+                ]
+            })
+            return { id }
+        } catch (error) {
+            console.error('Mobil bildirim gönderme hatası:', error)
+            return null
+        }
     }
 
-    if (Notification.permission !== 'granted') {
-        console.warn('Bildirim izni verilmemiş')
-        return null
-    }
+    // Web Fallback
+    if (Notification.permission !== 'granted') return null
 
     try {
         const notification = new Notification(title, {
@@ -67,15 +106,15 @@ export function sendLocalNotification(
 
         return notification
     } catch (error) {
-        console.error('Bildirim gönderme hatası:', error)
+        console.error('Web bildirim gönderme hatası:', error)
         return null
     }
 }
 
 // Send study completion notification
-export function sendStudyCompleteNotification(courseName: string, duration: number) {
+export async function sendStudyCompleteNotification(courseName: string, duration: number) {
     const minutes = Math.round(duration / 60)
-    sendLocalNotification(
+    await sendLocalNotification(
         '🎉 Çalışma tamamlandı!',
         `${courseName} için ${minutes} dakika çalıştınız. Harika iş!`,
         { tag: 'study-complete' }
@@ -83,15 +122,15 @@ export function sendStudyCompleteNotification(courseName: string, duration: numb
 }
 
 // Send pomodoro notification
-export function sendPomodoroNotification(type: 'work' | 'break') {
+export async function sendPomodoroNotification(type: 'work' | 'break') {
     if (type === 'work') {
-        sendLocalNotification(
+        await sendLocalNotification(
             '🍅 Pomodoro tamamlandı!',
             'Harika iş! Şimdi mola zamanı. ☕',
             { tag: 'pomodoro', requireInteraction: true }
         )
     } else {
-        sendLocalNotification(
+        await sendLocalNotification(
             '⏰ Mola bitti!',
             'Çalışmaya geri dönme zamanı! 💪',
             { tag: 'pomodoro', requireInteraction: true }
@@ -100,11 +139,11 @@ export function sendPomodoroNotification(type: 'work' | 'break') {
 }
 
 // Send exam reminder notification
-export function sendExamReminderNotification(examName: string, courseName: string, daysLeft: number) {
+export async function sendExamReminderNotification(examName: string, courseName: string, daysLeft: number) {
     const urgency = daysLeft <= 1 ? '🚨' : daysLeft <= 3 ? '⚠️' : '📅'
     const dayText = daysLeft === 0 ? 'bugün' : daysLeft === 1 ? 'yarın' : `${daysLeft} gün sonra`
 
-    sendLocalNotification(
+    await sendLocalNotification(
         `${urgency} Sınav Hatırlatması`,
         `${courseName} - ${examName} ${dayText}!`,
         { tag: `exam-${examName}`, requireInteraction: daysLeft <= 1 }
@@ -112,13 +151,13 @@ export function sendExamReminderNotification(examName: string, courseName: strin
 }
 
 // Check and send exam reminders (called on Dashboard load)
-export function checkExamReminders(exams: Array<{ title: string; course_name: string; due_date: string }>) {
-    if (Notification.permission !== 'granted') return
+export async function checkExamReminders(exams: Array<{ title: string; course_name: string; due_date: string }>) {
+    const perm = await getNotificationPermission()
+    if (perm !== 'granted') return
 
     const now = new Date()
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-    // Check if we already sent reminders today
     const lastReminderDate = localStorage.getItem('unitracker_last_exam_reminder')
     const todayStr = today.toISOString().split('T')[0]
     if (lastReminderDate === todayStr) return
@@ -130,9 +169,8 @@ export function checkExamReminders(exams: Array<{ title: string; course_name: st
         const diffTime = examDay.getTime() - today.getTime()
         const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-        // Send notifications for exams within 3 days
         if (daysLeft >= 0 && daysLeft <= 3) {
-            sendExamReminderNotification(exam.title, exam.course_name, daysLeft)
+            await sendExamReminderNotification(exam.title, exam.course_name, daysLeft)
             sentAny = true
         }
     }
@@ -142,35 +180,27 @@ export function checkExamReminders(exams: Array<{ title: string; course_name: st
     }
 }
 
-// Register service worker (for PWA only - no push subscription)
+// Register service worker (for PWA)
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-    if (!('serviceWorker' in navigator)) {
-        console.log('Service worker desteklenmiyor')
-        return null
-    }
-
+    if (!('serviceWorker' in navigator)) return null
     try {
-        const registration = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/'
-        })
-        console.log('Service Worker kayıtlı:', registration)
+        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
         return registration
     } catch (error) {
-        console.error('Service Worker kaydı başarısız:', error)
         return null
     }
 }
 
-// Legacy exports for backward compatibility
+// Legacy exports
 export const isPushNotificationSupported = isNotificationSupported
 export async function subscribeToPushNotifications(_userId: string): Promise<boolean> {
     const permission = await requestNotificationPermission()
     return permission === 'granted'
 }
 export async function unsubscribeFromPushNotifications(_userId: string): Promise<boolean> {
-    // No-op — local notifications don't have subscriptions
     return true
 }
 export async function isSubscribedToPush(): Promise<boolean> {
-    return Notification.permission === 'granted'
+    const perm = await getNotificationPermission()
+    return perm === 'granted'
 }

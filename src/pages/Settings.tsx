@@ -21,7 +21,7 @@ export default function Settings() {
     useEffect(() => {
         const supported = isPushNotificationSupported()
         setPushSupported(supported)
-        setNotificationPermission(getNotificationPermission())
+        getNotificationPermission().then(setNotificationPermission)
     }, [])
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -323,7 +323,8 @@ export default function Settings() {
                                         setLoading(true)
                                         try {
                                             const result = await subscribeToPushNotifications(user?.id || '')
-                                            setNotificationPermission(getNotificationPermission())
+                                            const perm = await getNotificationPermission()
+                                            setNotificationPermission(perm)
                                             if (result) {
                                                 alert('Bildirimler aktif edildi! 🔔')
                                             } else {
