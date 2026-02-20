@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input } from '../components/ui-base'
+import * as Icons from 'lucide-react'
 import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper } from 'lucide-react'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
@@ -553,10 +554,11 @@ export default function Social() {
                             <div className="grid md:grid-cols-3 gap-4">
                                 {recentBadges?.map((userBadge: any) => {
                                     const b = userBadge.badges;
+                                    const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
                                     return (
                                         <div key={userBadge.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center">
                                             <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner`} style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40` }}>
-                                                {b.icon}
+                                                <IconComponent className="h-8 w-8" />
                                             </div>
                                             <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
                                             <p className="text-xs text-gray-500 px-2 line-clamp-2">{b.description}</p>

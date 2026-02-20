@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button } from '../components/ui-base'
+import * as Icons from 'lucide-react'
 import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
 import { format, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
@@ -576,16 +577,20 @@ export default function Dashboard() {
                         {recentBadges?.length === 0 && (
                             <p className="text-gray-500 text-sm py-4 w-full text-center">Henüz rozet kazanılmadı.</p>
                         )}
-                        {recentBadges?.map((item: any) => (
-                            <div key={item.badges.id} className="group relative" title={item.badges.name}>
-                                <div className={`p-4 rounded-xl bg-${item.badges.color}-100 dark:bg-${item.badges.color}-900/30 text-${item.badges.color}-600 transition-transform group-hover:scale-110 shadow-sm border border-transparent hover:border-${item.badges.color}-200`}>
-                                    <Medal className="h-6 w-6" />
+                        {recentBadges?.map((item: any) => {
+                            const b = item.badges;
+                            const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
+                            return (
+                                <div key={b.id} className="group relative" title={b.name}>
+                                    <div className={`p-4 rounded-xl bg-${b.color}-100 dark:bg-${b.color}-900/30 text-${b.color}-600 transition-transform group-hover:scale-110 shadow-sm border border-transparent hover:border-${b.color}-200`}>
+                                        <IconComponent className="h-6 w-6" />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-1 border-2 border-white dark:border-gray-800 shadow-sm">
+                                        <ShieldCheck className="w-2.5 h-2.5 text-amber-500" />
+                                    </div>
                                 </div>
-                                <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-1 border-2 border-white dark:border-gray-800 shadow-sm">
-                                    <ShieldCheck className="w-2.5 h-2.5 text-amber-500" />
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </Card>
 
