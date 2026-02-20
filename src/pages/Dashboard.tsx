@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Card, Button } from '../components/ui-base'
+import { Card, Button, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
 import * as Icons from 'lucide-react'
 import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
 import { format, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
@@ -23,7 +23,7 @@ export default function Dashboard() {
     })
 
     // Recent Badges Query
-    const { data: recentBadges } = useQuery({
+    const { data: recentBadges, isLoading: isLoadingBadges } = useQuery({
         queryKey: ['recent_badges'],
         queryFn: async () => {
             const { data } = await supabase
@@ -83,7 +83,7 @@ export default function Dashboard() {
     })
 
     // Upcoming Assignments
-    const { data: upcomingAssignments } = useQuery({
+    const { data: upcomingAssignments, isLoading: isLoadingUpcoming } = useQuery({
         queryKey: ['upcoming_dashboard'],
         queryFn: async () => {
             const { data } = await supabase
@@ -166,7 +166,7 @@ export default function Dashboard() {
     }
 
     // Leaderboard Query
-    const { data: leaderboard } = useQuery({
+    const { data: leaderboard, isLoading: isLoadingLeaderboard } = useQuery({
         queryKey: ['leaderboard_compact'],
         queryFn: async () => {
             const { data, error } = await supabase.rpc('get_leaderboard', { timeframe: 'weekly' })
@@ -542,25 +542,36 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-4">
-                        {leaderboard?.map((entry: any, idx: number) => (
-                            <div key={entry.user_id} className={`flex items-center justify-between p-2.5 rounded-xl transition-colors ${entry.user_id === user?.id ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800' : ''}`}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-amber-100 text-amber-600' :
-                                        idx === 1 ? 'bg-slate-100 text-slate-600' :
-                                            idx === 2 ? 'bg-orange-100 text-orange-600' :
-                                                'bg-gray-100 text-gray-500'
-                                        }`}>
-                                        {idx + 1}
+                        {isLoadingLeaderboard ? (
+                            <ListSkeleton />
+                        ) : leaderboard?.length === 0 ? (
+                            <EmptyState
+                                icon={Trophy}
+                                title="Liderlik Boş"
+                                description="Arkadaşlarını ekle veya süre kaydetmeye başla."
+                                color="orange"
+                            />
+                        ) : (
+                            leaderboard?.map((entry: any, idx: number) => (
+                                <div key={entry.user_id} className={`flex items-center justify-between p-2.5 rounded-xl transition-colors ${entry.user_id === user?.id ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800' : ''}`}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-amber-100 text-amber-600' :
+                                            idx === 1 ? 'bg-slate-100 text-slate-600' :
+                                                idx === 2 ? 'bg-orange-100 text-orange-600' :
+                                                    'bg-gray-100 text-gray-500'
+                                            }`}>
+                                            {idx + 1}
+                                        </div>
+                                        <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                            {entry.display_name}
+                                        </span>
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                                        {entry.display_name}
+                                    <span className="text-xs font-bold text-gray-500 bg-white dark:bg-gray-800 py-1 px-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                        {(entry.total_minutes / 60).toFixed(1)} sa
                                     </span>
                                 </div>
-                                <span className="text-xs font-bold text-gray-500 bg-white dark:bg-gray-800 py-1 px-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                                    {(entry.total_minutes / 60).toFixed(1)} sa
-                                </span>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </Card>
 
@@ -574,23 +585,33 @@ export default function Dashboard() {
                         <Link to="/badges" className="text-xs font-bold text-blue-600 hover:text-blue-500 uppercase tracking-wider">Tümü</Link>
                     </div>
                     <div className="flex flex-wrap gap-4">
-                        {recentBadges?.length === 0 && (
-                            <p className="text-gray-500 text-sm py-4 w-full text-center">Henüz rozet kazanılmadı.</p>
+                        {isLoadingBadges ? (
+                            <GridSkeleton />
+                        ) : recentBadges?.length === 0 ? (
+                            <div className="w-full">
+                                <EmptyState
+                                    icon={Medal}
+                                    title="Henüz Rozet Yok"
+                                    description="Seri yaparak veya hedeflerine ulaşarak ilk rozetini kazan!"
+                                    color="blue"
+                                />
+                            </div>
+                        ) : (
+                            recentBadges?.map((item: any) => {
+                                const b = item.badges;
+                                const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
+                                return (
+                                    <div key={b.id} className="group relative" title={b.name}>
+                                        <div className={`p-4 rounded-xl bg-${b.color}-100 dark:bg-${b.color}-900/30 text-${b.color}-600 transition-transform group-hover:scale-110 shadow-sm border border-transparent hover:border-${b.color}-200`}>
+                                            <IconComponent className="h-6 w-6" />
+                                        </div>
+                                        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-1 border-2 border-white dark:border-gray-800 shadow-sm">
+                                            <ShieldCheck className="w-2.5 h-2.5 text-amber-500" />
+                                        </div>
+                                    </div>
+                                )
+                            })
                         )}
-                        {recentBadges?.map((item: any) => {
-                            const b = item.badges;
-                            const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
-                            return (
-                                <div key={b.id} className="group relative" title={b.name}>
-                                    <div className={`p-4 rounded-xl bg-${b.color}-100 dark:bg-${b.color}-900/30 text-${b.color}-600 transition-transform group-hover:scale-110 shadow-sm border border-transparent hover:border-${b.color}-200`}>
-                                        <IconComponent className="h-6 w-6" />
-                                    </div>
-                                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-1 border-2 border-white dark:border-gray-800 shadow-sm">
-                                        <ShieldCheck className="w-2.5 h-2.5 text-amber-500" />
-                                    </div>
-                                </div>
-                            )
-                        })}
                     </div>
                 </Card>
 
@@ -602,52 +623,56 @@ export default function Dashboard() {
                     </div>
 
                     <div className="space-y-4">
-                        {upcomingAssignments?.length === 0 && (
-                            <p className="text-gray-500 text-sm py-8 text-center bg-gray-50 dark:bg-gray-900/30 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
-                                Yaklaşan ödev veya sınav yok 🎉
-                            </p>
-                        )}
-
-                        {upcomingAssignments?.map((item: any) => {
-                            const daysLeft = differenceInDays(new Date(item.due_date), new Date())
-                            return (
-                                <div key={item.id} className="flex flex-col space-y-2 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all border-2 border-transparent hover:border-blue-50 dark:hover:border-blue-900/20 group">
-                                    <div className="flex items-start space-x-3">
-                                        <div className="mt-1">
-                                            <div className="w-2 h-2 rounded-full group-hover:scale-150 transition-transform" style={{ backgroundColor: item.courses?.color || '#3b82f6' }} />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                                {item.title}
-                                            </p>
-                                            <p className="text-xs text-gray-500 truncate font-medium">{item.courses?.name}</p>
-                                        </div>
-                                        <div className="text-right whitespace-nowrap flex flex-col items-end gap-1">
-                                            {daysLeft <= 0 ? (
-                                                <span className="text-[10px] font-black uppercase text-red-600 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                                    <AlertCircle className="w-3 h-3" /> BUGÜN
-                                                </span>
-                                            ) : daysLeft === 1 ? (
-                                                <span className="text-[10px] font-black uppercase text-orange-600 bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                                    YARIN
-                                                </span>
-                                            ) : (
-                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1 ${daysLeft <= 3
-                                                    ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/40'
-                                                    : 'text-blue-600 bg-blue-100 dark:bg-blue-900/40'
-                                                    }`}>
-                                                    {daysLeft} GÜN KALDI
-                                                </span>
-                                            )}
-                                            <div className="flex items-center text-[10px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
-                                                <Clock className="w-3 h-3 mr-1" />
-                                                {format(new Date(item.due_date), 'd MMM', { locale: tr })}
+                        {isLoadingUpcoming ? (
+                            <ListSkeleton />
+                        ) : upcomingAssignments?.length === 0 ? (
+                            <EmptyState
+                                icon={Calendar}
+                                title="Boş Takvim"
+                                description="Yaklaşan ödev veya sınav yok 🎉"
+                                color="green"
+                            />
+                        ) : (
+                            upcomingAssignments?.map((item: any) => {
+                                const daysLeft = differenceInDays(new Date(item.due_date), new Date())
+                                return (
+                                    <div key={item.id} className="flex flex-col space-y-2 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all border-2 border-transparent hover:border-blue-50 dark:hover:border-blue-900/20 group">
+                                        <div className="flex items-start space-x-3">
+                                            <div className="mt-1">
+                                                <div className="w-2 h-2 rounded-full group-hover:scale-150 transition-transform" style={{ backgroundColor: item.courses?.color || '#3b82f6' }} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                                    {item.title}
+                                                </p>
+                                                <p className="text-xs text-gray-500 truncate font-medium">{item.courses?.name}</p>
+                                            </div>
+                                            <div className="text-right whitespace-nowrap flex flex-col items-end gap-1">
+                                                {daysLeft <= 0 ? (
+                                                    <span className="text-[10px] font-black uppercase text-red-600 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" /> BUGÜN
+                                                    </span>
+                                                ) : daysLeft === 1 ? (
+                                                    <span className="text-[10px] font-black uppercase text-orange-600 bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                        YARIN
+                                                    </span>
+                                                ) : (
+                                                    <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1 ${daysLeft <= 3
+                                                        ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/40'
+                                                        : 'text-blue-600 bg-blue-100 dark:bg-blue-900/40'
+                                                        }`}>
+                                                        {daysLeft} GÜN KALDI
+                                                    </span>
+                                                )}
+                                                <div className="flex items-center text-[10px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
+                                                    <Clock className="w-3 h-3 mr-1" />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )
-                        })}
+                                )
+                            })
+                        )}
                     </div>
 
                     <Link to="/calendar">

@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Card, Button, Input } from '../components/ui-base'
+import { Card, Button, Input, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
 import * as Icons from 'lucide-react'
-import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper } from 'lucide-react'
+import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper, Medal, Trash2 } from 'lucide-react'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -33,7 +33,7 @@ export default function Social() {
     })
 
     // Fetch friends
-    const { data: friends } = useQuery({
+    const { data: friends, isLoading: isLoadingFriends } = useQuery({
         queryKey: ['friends'],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -127,7 +127,7 @@ export default function Social() {
     })
 
     // Fetch leaderboard
-    const { data: leaderboard } = useQuery({
+    const { data: leaderboard, isLoading: isLoadingLeaderboard } = useQuery({
         queryKey: ['leaderboard', leaderboardTimeframe, leaderboardScope],
         queryFn: async () => {
             const { data } = await supabase.rpc('get_leaderboard', {
@@ -139,7 +139,7 @@ export default function Social() {
     })
 
     // Fetch user's recent badges for the showcase
-    const { data: recentBadges } = useQuery({
+    const { data: recentBadges, isLoading: isLoadingBadges } = useQuery({
         queryKey: ['recent_badges'],
         queryFn: async () => {
             const { data } = await supabase
@@ -256,7 +256,7 @@ export default function Social() {
     }, [reactionFeedback, queryClient])
 
     // --- Challenges Logic ---
-    const { data: allChallenges } = useQuery({
+    const { data: allChallenges, isLoading: isLoadingChallenges } = useQuery({
         queryKey: ['challenges_all'],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -353,6 +353,21 @@ export default function Social() {
         },
         onSuccess: () => {
             setSuccessMessage('Challenge’a katıldınız! Başarılar ✨')
+            queryClient.invalidateQueries({ queryKey: ['challenges_all'] })
+            setTimeout(() => setSuccessMessage(''), 3000)
+        }
+    })
+
+    const deleteChallengeMutation = useMutation({
+        mutationFn: async (challengeId: string) => {
+            const { error } = await supabase
+                .from('challenges')
+                .delete()
+                .eq('id', challengeId)
+            if (error) throw error
+        },
+        onSuccess: () => {
+            setSuccessMessage('Challenge başarıyla silindi!')
             queryClient.invalidateQueries({ queryKey: ['challenges_all'] })
             setTimeout(() => setSuccessMessage(''), 3000)
         }
@@ -468,13 +483,19 @@ export default function Social() {
                             </div>
                         </div>
 
-                        {leaderboard?.length === 0 ? (
-                            <div className="text-center py-10 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                                <Trophy className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">Henüz rekabet verisi yok.</p>
+                        {isLoadingLeaderboard ? (
+                            <div className="mt-8"><ListSkeleton /></div>
+                        ) : leaderboard?.length === 0 ? (
+                            <div className="mt-8">
+                                <EmptyState
+                                    icon={Trophy}
+                                    title="Henüz Rekabet Verisi Yok"
+                                    description="Arkadaşlarını ekle ve ilk puanını sen topla."
+                                    color="orange"
+                                />
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
                                 {leaderboard?.map((entry: any, index: number) => (
                                     <div
                                         key={entry.user_id}
@@ -546,18 +567,25 @@ export default function Social() {
                             </div>
                         </div>
 
-                        {recentBadges?.length === 0 ? (
-                            <div className="text-center py-6 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
-                                <p className="text-gray-500 text-sm">Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!</p>
+                        {isLoadingBadges ? (
+                            <GridSkeleton />
+                        ) : recentBadges?.length === 0 ? (
+                            <div className="w-full">
+                                <EmptyState
+                                    icon={Medal}
+                                    title="Rozet Kazanılmadı"
+                                    description="Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!"
+                                    color="gray"
+                                />
                             </div>
                         ) : (
-                            <div className="grid md:grid-cols-3 gap-4">
-                                {recentBadges?.map((userBadge: any) => {
-                                    const b = userBadge.badges;
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {recentBadges?.map((item: any) => {
+                                    const b = item.badges;
                                     const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
                                     return (
-                                        <div key={userBadge.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center">
-                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner`} style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40` }}>
+                                        <div key={b.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center hover:border-indigo-200">
+                                            <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner" style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40`, boxShadow: `inset 0 2px 4px 0 shadow-${b.color}-500/10` }}>
                                                 <IconComponent className="h-8 w-8" />
                                             </div>
                                             <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
@@ -663,11 +691,16 @@ export default function Social() {
                                         {friends?.length || 0}
                                     </span>
                                 </h2>
-                                {friends?.length === 0 ? (
-                                    <div className="text-center py-12 text-gray-500 bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
-                                        <Users className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                                        <p className="text-sm">Henüz arkadaşın yok.</p>
-                                    </div>
+
+                                {isLoadingFriends ? (
+                                    <ListSkeleton />
+                                ) : friends?.length === 0 ? (
+                                    <EmptyState
+                                        icon={Users}
+                                        title="Arkadaşın Yok"
+                                        description="Birlikte daha iyi! E-posta adresi ile arkadaşlarını bul ve ekle."
+                                        color="blue"
+                                    />
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {friends?.map((friendship: any) => {
@@ -796,55 +829,85 @@ export default function Social() {
                         </Card>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {myChallenges.map((challenge) => {
-                            const status = getChallengeStatus(challenge)
-                            const currentHours = challengeProgress?.[challenge.id] || 0
-                            const progress = Math.min((currentHours / challenge.target_hours) * 100, 100)
-                            const daysLeft = differenceInDays(new Date(challenge.end_date), new Date())
+                    {isLoadingChallenges ? (
+                        <GridSkeleton />
+                    ) : myChallenges.length === 0 ? (
+                        <div className="my-10">
+                            <EmptyState
+                                icon={Target}
+                                title="Aktif Challenge Yok"
+                                description="Kendine yeni bir hedef belirle veya gruptaki challenge'lara katıl!"
+                                color="orange"
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {myChallenges.map((challenge) => {
+                                const status = getChallengeStatus(challenge)
+                                const currentHours = challengeProgress?.[challenge.id] || 0
+                                const progress = Math.min((currentHours / challenge.target_hours) * 100, 100)
+                                const daysLeft = differenceInDays(new Date(challenge.end_date), new Date())
 
-                            return (
-                                <Card key={challenge.id} className="p-6 hover:shadow-lg transition-all group relative overflow-hidden">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                {challenge.is_group && (
-                                                    <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-[10px] font-black px-1.5 py-0.5 rounded uppercase">Grup</span>
-                                                )}
-                                                <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">{challenge.title}</h3>
-                                            </div>
-                                            <p className="text-xs text-gray-400 line-clamp-1">{challenge.description}</p>
-                                        </div>
-                                        <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-800/20' : 'bg-gray-100 text-gray-500'}`}>
-                                            {status === 'active' ? 'Aktif' : 'Bitti'}
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <div className="flex items-end justify-between">
+                                return (
+                                    <Card key={challenge.id} className="p-6 hover:shadow-lg transition-all group relative overflow-hidden">
+                                        <div className="flex items-start justify-between mb-4">
                                             <div>
-                                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">İlerleme</p>
-                                                <p className="text-2xl font-black text-gray-900 dark:text-white">
-                                                    {currentHours}<span className="text-sm text-gray-400 font-medium">/{challenge.target_hours}sa</span>
-                                                </p>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    {challenge.is_group && (
+                                                        <span className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-[10px] font-black px-1.5 py-0.5 rounded uppercase">Grup</span>
+                                                    )}
+                                                    <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">{challenge.title}</h3>
+                                                </div>
+                                                <p className="text-xs text-gray-400 line-clamp-1">{challenge.description}</p>
                                             </div>
-                                            <p className="text-sm font-black text-blue-600 dark:text-blue-400">{Math.round(progress)}%</p>
-                                        </div>
-                                        <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2">
-                                            <div className="bg-blue-600 h-full rounded-full" style={{ width: `${progress}%` }} />
-                                        </div>
-                                        <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-3 border-t border-gray-50 dark:border-gray-800">
-                                            <div className="flex gap-3">
-                                                <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" /> {format(new Date(challenge.end_date), 'd MMM', { locale: tr })}</span>
-                                                <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {challenge.challenge_participants?.length || 0}</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-800/20' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {status === 'active' ? 'Aktif' : 'Bitti'}
+                                                </span>
+                                                {challenge.creator_id === user?.id && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault()
+                                                            if (window.confirm('Bu challenge\'ı silmek istediğinize emin misiniz?')) {
+                                                                deleteChallengeMutation.mutate(challenge.id)
+                                                            }
+                                                        }}
+                                                        disabled={deleteChallengeMutation.isPending}
+                                                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                        title="Challenge'ı Sil"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </div>
-                                            {status === 'active' && <span className="text-orange-500">{daysLeft} gün kaldı</span>}
                                         </div>
-                                    </div>
-                                </Card>
-                            )
-                        })}
-                    </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-end justify-between">
+                                                <div>
+                                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">İlerleme</p>
+                                                    <p className="text-2xl font-black text-gray-900 dark:text-white">
+                                                        {currentHours}<span className="text-sm text-gray-400 font-medium">/{challenge.target_hours}sa</span>
+                                                    </p>
+                                                </div>
+                                                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{Math.round(progress)}%</p>
+                                            </div>
+                                            <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                                                <div className="bg-blue-600 h-full rounded-full" style={{ width: `${progress}%` }} />
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-bold text-gray-400 pt-3 border-t border-gray-50 dark:border-gray-800">
+                                                <div className="flex gap-3">
+                                                    <span className="flex items-center gap-1"><CalendarIcon className="h-3 w-3" /> {format(new Date(challenge.end_date), 'd MMM', { locale: tr })}</span>
+                                                    <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {challenge.challenge_participants?.length || 0}</span>
+                                                </div>
+                                                {status === 'active' && <span className="text-orange-500">{daysLeft} gün kaldı</span>}
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    )}
 
                     {publicGroupChallenges.length > 0 && (
                         <div className="space-y-4 pt-6">
@@ -853,8 +916,23 @@ export default function Social() {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {publicGroupChallenges.map((challenge) => (
-                                    <Card key={challenge.id} className="p-4 border-2 border-orange-50 dark:border-orange-900/10">
-                                        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{challenge.title}</h3>
+                                    <Card key={challenge.id} className="p-4 border-2 border-orange-50 dark:border-orange-900/10 relative group">
+                                        {challenge.creator_id === user?.id && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault()
+                                                    if (window.confirm('Bu challenge\'ı silmek istediğinize emin misiniz? Tüm katılımcıların ilerlemesi de silinecektir.')) {
+                                                        deleteChallengeMutation.mutate(challenge.id)
+                                                    }
+                                                }}
+                                                disabled={deleteChallengeMutation.isPending}
+                                                className="absolute top-2 right-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Challenge'ı Sil"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1 pr-6">{challenge.title}</h3>
                                         <p className="text-[10px] text-gray-400 mb-3">{challenge.target_hours} Saat • {challenge.challenge_participants?.length || 0} Katılımcı</p>
                                         <Button size="sm" onClick={() => joinChallengeMutation.mutate(challenge.id)} className="w-full bg-orange-600 hover:bg-orange-700 text-xs">Katıl</Button>
                                     </Card>
@@ -864,6 +942,6 @@ export default function Social() {
                     )}
                 </div>
             )}
-        </div >
+        </div>
     )
 }

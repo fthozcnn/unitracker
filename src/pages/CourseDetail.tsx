@@ -360,8 +360,8 @@ export default function CourseDetail() {
                     {/* Min Final Grade Helper */}
                     {minFinal !== null && gradeInputs['vize']?.grade && (
                         <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${minFinal > 100 ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
-                                minFinal > 70 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
-                                    'bg-green-50 dark:bg-green-900/20 text-green-600'
+                            minFinal > 70 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
+                                'bg-green-50 dark:bg-green-900/20 text-green-600'
                             }`}>
                             {minFinal > 100
                                 ? '❌ DD almak için bile finalden 100 üzeri almanız gerekiyor.'
