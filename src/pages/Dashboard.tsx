@@ -5,12 +5,13 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button } from '../components/ui-base'
 import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
-import { format, isSameDay, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
+import { format, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
 import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
 import { checkExamReminders } from '../lib/pushNotifications'
 import OnboardingWizard from '../components/OnboardingWizard'
+import DailyQuests from '../components/DailyQuests'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
@@ -38,17 +39,25 @@ export default function Dashboard() {
     const { data: stats } = useQuery({
         queryKey: ['dashboard_stats'],
         queryFn: async () => {
-            const [coursesRes, sessionsRes, assignmentsRes] = await Promise.all([
+            const todayISO = new Date().toISOString().split('T')[0]
+
+            const [coursesRes, sessionsRes, pendingAssignmentsRes, todaySessionsRes, todayAssignmentsRes] = await Promise.all([
                 supabase.from('courses').select('id', { count: 'exact' }).eq('user_id', user?.id),
                 supabase.from('study_sessions').select('duration', { count: 'exact' }).eq('user_id', user?.id),
-                supabase.from('assignments').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('is_completed', false)
+                supabase.from('assignments').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('is_completed', false),
+                supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', `${todayISO}T00:00:00Z`),
+                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('updated_at', `${todayISO}T00:00:00Z`)
             ])
+
+            const totalMinutesToday = todaySessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0
 
             return {
                 courses: coursesRes.count || 0,
                 sessions: sessionsRes.count || 0,
                 totalDuration: sessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0,
-                pendingAssignments: assignmentsRes.count || 0
+                pendingAssignments: pendingAssignmentsRes.count || 0,
+                totalMinutesToday,
+                assignmentsCompletedToday: todayAssignmentsRes.data?.length || 0
             }
         }
     })
@@ -361,6 +370,15 @@ export default function Dashboard() {
                 </Card>
             )}
 
+            {/* Daily Quests / Günlük Görevler */}
+            <div className="mb-4 md:mb-6">
+                <DailyQuests
+                    totalMinutesToday={stats?.totalMinutesToday || 0}
+                    assignmentsCompletedToday={stats?.assignmentsCompletedToday || 0}
+                    currentStreak={streak || 0}
+                />
+            </div>
+
             {/* Overview Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <Card className="p-3 md:p-4 flex items-center space-x-3 md:space-x-4">
@@ -585,25 +603,46 @@ export default function Dashboard() {
                             </p>
                         )}
 
-                        {upcomingAssignments?.map((item: any) => (
-                            <div key={item.id} className="flex items-start space-x-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all border-2 border-transparent hover:border-blue-50 dark:hover:border-blue-900/20 group">
-                                <div className="mt-1">
-                                    <div className="w-2 h-2 rounded-full group-hover:scale-150 transition-transform" style={{ backgroundColor: item.courses?.color || '#3b82f6' }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                        {item.title}
-                                    </p>
-                                    <p className="text-xs text-gray-500 truncate font-medium">{item.courses?.name}</p>
-                                </div>
-                                <div className="text-right whitespace-nowrap">
-                                    <div className="flex items-center text-[10px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
-                                        <Clock className="w-3 h-3 mr-1" />
-                                        {format(new Date(item.due_date), 'd MMM', { locale: tr })}
+                        {upcomingAssignments?.map((item: any) => {
+                            const daysLeft = differenceInDays(new Date(item.due_date), new Date())
+                            return (
+                                <div key={item.id} className="flex flex-col space-y-2 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all border-2 border-transparent hover:border-blue-50 dark:hover:border-blue-900/20 group">
+                                    <div className="flex items-start space-x-3">
+                                        <div className="mt-1">
+                                            <div className="w-2 h-2 rounded-full group-hover:scale-150 transition-transform" style={{ backgroundColor: item.courses?.color || '#3b82f6' }} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                                {item.title}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate font-medium">{item.courses?.name}</p>
+                                        </div>
+                                        <div className="text-right whitespace-nowrap flex flex-col items-end gap-1">
+                                            {daysLeft <= 0 ? (
+                                                <span className="text-[10px] font-black uppercase text-red-600 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" /> BUGÜN
+                                                </span>
+                                            ) : daysLeft === 1 ? (
+                                                <span className="text-[10px] font-black uppercase text-orange-600 bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                    YARIN
+                                                </span>
+                                            ) : (
+                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md flex items-center gap-1 ${daysLeft <= 3
+                                                    ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/40'
+                                                    : 'text-blue-600 bg-blue-100 dark:bg-blue-900/40'
+                                                    }`}>
+                                                    {daysLeft} GÜN KALDI
+                                                </span>
+                                            )}
+                                            <div className="flex items-center text-[10px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
+                                                <Clock className="w-3 h-3 mr-1" />
+                                                {format(new Date(item.due_date), 'd MMM', { locale: tr })}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
 
                     <Link to="/calendar">

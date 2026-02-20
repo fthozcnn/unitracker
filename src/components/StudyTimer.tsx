@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Play, Pause, Square, RefreshCw, Timer as TimerIcon, Watch, Coffee, Brain, Settings as SettingsIcon } from 'lucide-react'
+import { Play, Pause, Square, RefreshCw, Timer as TimerIcon, Watch, Coffee, Brain, Settings as SettingsIcon, Maximize2, Minimize2 } from 'lucide-react'
 import { Button, Card, Input } from './ui-base'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -31,6 +31,7 @@ export default function StudyTimer() {
     const [selectedCourseId, setSelectedCourseId] = useState<string>('')
     const [note, setNote] = useState('')
     const [showSettings, setShowSettings] = useState(false)
+    const [isZenMode, setIsZenMode] = useState(false)
     const startTimeRef = useRef<Date | null>(null)
 
     // Pomodoro settings
@@ -279,7 +280,14 @@ export default function StudyTimer() {
                 </div>
             )}
 
-            <div className="text-center mb-8">
+            <div className="text-center mb-8 relative">
+                <button
+                    onClick={() => setIsZenMode(true)}
+                    className="absolute top-0 right-0 p-2 text-gray-400 hover:text-blue-500 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Zen Modu (Tam Ekran)"
+                >
+                    <Maximize2 className="h-4 w-4" />
+                </button>
                 <div className="text-6xl font-mono font-bold text-gray-900 dark:text-white mb-2">
                     {mode === 'stopwatch' ? formatTime(seconds) : formatTime(remainingTime)}
                 </div>
@@ -349,6 +357,72 @@ export default function StudyTimer() {
                     </Button>
                 </div>
             </div>
+
+            {/* Z E N   M O D E   O V E R L A Y */}
+            {isZenMode && (
+                <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
+                    <button
+                        onClick={() => setIsZenMode(false)}
+                        className="absolute top-8 right-8 p-3 text-gray-400 hover:text-white transition-colors bg-gray-900/50 hover:bg-gray-800 rounded-xl backdrop-blur-sm"
+                        title="Zen Modundan Çık"
+                    >
+                        <Minimize2 className="h-6 w-6" />
+                    </button>
+
+                    <div className="text-center space-y-8">
+                        {mode === 'pomodoro' && (
+                            <div className="flex items-center justify-center gap-3 text-gray-400 mb-6 font-medium text-lg tracking-widest uppercase">
+                                {pomodoroMode === 'work' ? <Brain className="h-5 w-5 text-blue-400" /> : <Coffee className="h-5 w-5 text-emerald-400" />}
+                                <span>
+                                    {pomodoroMode === 'work' ? 'Odaklanma Zamanı' :
+                                        pomodoroMode === 'short_break' ? 'Kısa Mola' : 'Uzun Mola'}
+                                </span>
+                            </div>
+                        )}
+
+                        <div className={`text-9xl md:text-[12rem] font-mono font-bold tracking-tighter ${isActive ? 'text-white' : 'text-gray-500'}`}>
+                            {mode === 'stopwatch' ? formatTime(seconds) : formatTime(remainingTime)}
+                        </div>
+
+                        <div className="flex justify-center gap-6 pt-12">
+                            {!isActive ? (
+                                <button
+                                    onClick={toggleTimer}
+                                    className="h-20 w-20 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform"
+                                >
+                                    <Play className="h-8 w-8 ml-1" />
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={toggleTimer}
+                                    className="h-20 w-20 rounded-full border-2 border-white/20 text-white flex items-center justify-center hover:bg-white/10 transition-colors"
+                                >
+                                    <Pause className="h-8 w-8" />
+                                </button>
+                            )}
+
+                            <button
+                                onClick={resetTimer}
+                                disabled={isActive}
+                                className={`h-20 w-20 rounded-full border-2 flex items-center justify-center transition-colors ${isActive ? 'border-gray-800 text-gray-800' : 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'}`}
+                            >
+                                <RefreshCw className="h-6 w-6" />
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setIsZenMode(false)
+                                    saveSession()
+                                }}
+                                disabled={isActive || (mode === 'stopwatch' ? seconds === 0 : remainingTime === settings.workTime * 60)}
+                                className={`h-20 w-20 rounded-full border-2 flex items-center justify-center transition-colors ${isActive || (mode === 'stopwatch' ? seconds === 0 : remainingTime === settings.workTime * 60) ? 'border-gray-800 text-gray-800' : 'border-red-900/50 text-red-500 hover:bg-red-900/20 hover:border-red-500'}`}
+                            >
+                                <Square className="h-6 w-6" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Card>
     )
 }
