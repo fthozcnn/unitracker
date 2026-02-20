@@ -499,6 +499,29 @@ export default function Social() {
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Bu {leaderboardTimeframe === 'weekly' ? 'hafta' : 'ay'}</p>
                                         </div>
                                         <div className="text-right ml-3 shrink-0 flex items-center gap-3">
+                                            {/* Ekle Butonu - Yalnızca Herkes listesinde, kendisi, mevcut ya da bekleyen arkadaşı değilse göster */}
+                                            {leaderboardScope === 'global' && entry.user_id !== user?.id && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    className="text-[10px] h-7 px-2 py-0 bg-white dark:bg-gray-800 border-gray-200 shadow-sm"
+                                                    onClick={() => sendRequestMutation.mutate(entry.user_id)}
+                                                    disabled={
+                                                        sendRequestMutation.isPending ||
+                                                        friends?.some((f: any) => f.friend?.id === entry.user_id) ||
+                                                        sentRequests?.some((r: any) => r.friend?.id === entry.user_id) ||
+                                                        pendingRequests?.some((r: any) => r.sender?.id === entry.user_id)
+                                                    }
+                                                    title="Arkadaş Ekle"
+                                                >
+                                                    <UserPlus className="h-3 w-3 sm:mr-1" />
+                                                    <span className="hidden sm:inline">
+                                                        {friends?.some((f: any) => f.friend?.id === entry.user_id) ? 'Arkadaşız' :
+                                                            sentRequests?.some((r: any) => r.friend?.id === entry.user_id) ? 'İstek Gönderildi' :
+                                                                pendingRequests?.some((r: any) => r.sender?.id === entry.user_id) ? 'İstek Var' : 'Ekle'}
+                                                    </span>
+                                                </Button>
+                                            )}
                                             <div className="text-right">
                                                 <p className="font-black text-lg text-blue-600 dark:text-blue-400">{Math.round(entry.total_minutes / 60)}h</p>
                                                 <p className="text-[10px] uppercase font-bold text-gray-400">{entry.total_minutes % 60}m</p>
