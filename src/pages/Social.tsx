@@ -10,7 +10,7 @@ import { tr } from 'date-fns/locale'
 export default function Social() {
     const { user } = useAuth()
     const queryClient = useQueryClient()
-    const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard'>('friends')
+    const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard'>('leaderboard')
     const [searchEmail, setSearchEmail] = useState('')
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'weekly' | 'monthly'>('weekly')
@@ -569,7 +569,7 @@ export default function Social() {
                 </div>
             )}
 
-            {activeTab === 'friends' ? (
+            {activeTab === 'friends' && (
                 <>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-6">
                         {/* Friend Management Column */}
@@ -734,7 +734,9 @@ export default function Social() {
                         </div>
                     </div>
                 </>
-            ) : (
+            )}
+
+            {activeTab === 'challenges' && (
                 /* Challenges Tab View */
                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="flex justify-between items-center">
