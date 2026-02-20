@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addXP, updatePresence, XP_REWARDS } from '../lib/xpSystem'
 import { sendPomodoroNotification, sendStudyCompleteNotification } from '../lib/pushNotifications'
+import { triggerSuccessConfetti } from '../lib/confetti'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -85,6 +86,7 @@ export default function StudyTimer() {
                                     setRemainingTime(settings.shortBreak * 60)
                                 }
                                 sendPomodoroNotification('work')
+                                triggerSuccessConfetti() // Konfeti Pomodoro bitişi
                                 // Award XP for Pomodoro completion
                                 if (user) addXP(user.id, XP_REWARDS.POMODORO_COMPLETE)
                             } else {
@@ -175,6 +177,7 @@ export default function StudyTimer() {
             // Send desktop notification
             const courseName = courses?.find((c: any) => c.id === selectedCourseId)?.name
             sendStudyCompleteNotification(courseName || 'Ders', duration)
+            triggerSuccessConfetti() // Çalışma (Study Session) bittiğinde konfeti
 
             alert('Çalışma başarıyla kaydedildi! 🎉')
             if (mode === 'stopwatch') {
@@ -195,7 +198,7 @@ export default function StudyTimer() {
         const h = Math.floor(totalSeconds / 3600)
         const m = Math.floor((totalSeconds % 3600) / 60)
         const s = totalSeconds % 60
-        return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} `
     }
 
     const updateSetting = (key: keyof PomodoroSettings, value: string) => {

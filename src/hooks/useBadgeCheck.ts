@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendLocalNotification } from '../lib/pushNotifications'
 import { addXP, XP_REWARDS } from '../lib/xpSystem'
+import { triggerLevelUpConfetti } from '../lib/confetti'
 
 export function useBadgeCheck() {
     const { user } = useAuth()
@@ -307,6 +308,9 @@ export function useBadgeCheck() {
                     if (!error) {
                         queryClient.invalidateQueries({ queryKey: ['user_badges'] })
                         queryClient.invalidateQueries({ queryKey: ['recent_badges'] })
+
+                        // Konfeti fırlat
+                        triggerLevelUpConfetti()
 
                         // Award XP for each badge earned
                         await addXP(user.id, badgesToAward.length * XP_REWARDS.BADGE_EARNED)

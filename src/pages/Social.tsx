@@ -10,7 +10,7 @@ import { tr } from 'date-fns/locale'
 export default function Social() {
     const { user } = useAuth()
     const queryClient = useQueryClient()
-    const [activeTab, setActiveTab] = useState<'friends' | 'challenges'>('friends')
+    const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard'>('friends')
     const [searchEmail, setSearchEmail] = useState('')
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'weekly' | 'monthly'>('weekly')
@@ -129,6 +129,30 @@ export default function Social() {
         queryKey: ['leaderboard', leaderboardTimeframe],
         queryFn: async () => {
             const { data } = await supabase.rpc('get_leaderboard', { timeframe: leaderboardTimeframe })
+            return data || []
+        }
+    })
+
+    // Fetch user's recent badges for the showcase
+    const { data: recentBadges } = useQuery({
+        queryKey: ['recent_badges'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('user_badges')
+                .select(`
+                    id,
+                    earned_at,
+                    badges (
+                        id,
+                        name,
+                        icon,
+                        color,
+                        description
+                    )
+                `)
+                .eq('user_id', user?.id)
+                .order('earned_at', { ascending: false })
+                .limit(3)
             return data || []
         }
     })
@@ -346,7 +370,17 @@ export default function Social() {
             </div>
 
             {/* Tab System */}
-            <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl w-fit">
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl w-fit flex-wrap gap-1">
+                <button
+                    onClick={() => setActiveTab('leaderboard')}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'leaderboard'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <Trophy className="h-4 w-4" />
+                    Liderlik & Vitrin
+                </button>
                 <button
                     onClick={() => setActiveTab('friends')}
                     className={`px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'friends'
@@ -355,7 +389,7 @@ export default function Social() {
                         }`}
                 >
                     <Users className="h-4 w-4" />
-                    Arkadaşlar & Liderlik
+                    Arkadaşlarım
                 </button>
                 <button
                     onClick={() => setActiveTab('challenges')}
@@ -369,10 +403,43 @@ export default function Social() {
                 </button>
             </div>
 
-            {activeTab === 'friends' ? (
-                <>
+            {activeTab === 'leaderboard' && (
+                <div className="space-y-8">
+                    {/* Badge Showcase (Vitrin) */}
+                    <Card className="p-6 md:p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border-indigo-100 dark:border-indigo-800/30">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                                <PartyPopper className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rozet Vitrini</h2>
+                                <p className="text-sm text-gray-500">En son kazandığın rozetler</p>
+                            </div>
+                        </div>
 
-                    {/* Leaderboard - PRIMARY FOCUS (Top) */}
+                        {recentBadges?.length === 0 ? (
+                            <div className="text-center py-6 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
+                                <p className="text-gray-500 text-sm">Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!</p>
+                            </div>
+                        ) : (
+                            <div className="grid md:grid-cols-3 gap-4">
+                                {recentBadges?.map((userBadge: any) => {
+                                    const b = userBadge.badges;
+                                    return (
+                                        <div key={userBadge.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center">
+                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner`} style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40` }}>
+                                                {b.icon}
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
+                                            <p className="text-xs text-gray-500 px-2 line-clamp-2">{b.description}</p>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </Card>
+
+                    {/* Leaderboard */}
                     <Card className="p-4 md:p-8 border-2 border-blue-100 dark:border-blue-900/30">
                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                             <div className="flex items-center gap-3">
@@ -449,8 +516,12 @@ export default function Social() {
                             </div>
                         )}
                     </Card>
+                </div>
+            )}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-12">
+            {activeTab === 'friends' ? (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-6">
                         {/* Friend Management Column */}
                         <div className="space-y-6">
                             {/* Pending & Sent Requests Area (Only if exists) */}
