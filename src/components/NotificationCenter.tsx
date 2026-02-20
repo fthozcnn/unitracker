@@ -156,7 +156,7 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
                                                 </div>
                                                 <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{n.message}</p>
                                                 <p className="text-[10px] text-gray-400 mt-2 font-medium">
-                                                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: tr })}
+                                                    {formatDistanceToNow(new Date(n.created_at + 'Z'), { addSuffix: true, locale: tr })}
                                                 </p>
                                             </div>
                                             <div className="flex flex-col gap-2">

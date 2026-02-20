@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { Card, Button, Input } from '../components/ui-base'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -13,7 +12,6 @@ import {
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
-    const queryClient = useQueryClient()
     const [loading, setLoading] = useState(false)
     const [fullName, setFullName] = useState(profile?.display_name || user?.user_metadata?.full_name || '')
 

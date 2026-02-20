@@ -16,7 +16,6 @@ import {
     ClipboardList
 } from 'lucide-react'
 import clsx from 'clsx'
-import NotificationCenter from './NotificationCenter'
 
 export default function Layout() {
     const { signOut, user } = useAuth()
@@ -68,9 +67,6 @@ export default function Layout() {
                         </div>
                         <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniTracker</span>
                     </Link>
-                    <div className="absolute top-6 right-6">
-                        <NotificationCenter position="left" />
-                    </div>
 
                     {/* Navigation */}
                     <nav className="flex-1 space-y-1">
@@ -127,11 +123,8 @@ export default function Layout() {
                             <Menu className="h-6 w-6" />
                         </button>
                         <Link to="/" className="flex items-center">
-                            <GraduationCap className="h-6 w-6 text-gray-900 dark:text-white mr-2" />
-                            <span className="text-lg font-bold text-gray-900 dark:text-white">UniTracker</span>
                         </Link>
                     </div>
-                    <NotificationCenter />
                 </header >
 
                 <main className="flex-1 overflow-y-auto p-4 lg:p-12 pb-24 lg:pb-12">
