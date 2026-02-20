@@ -14,6 +14,7 @@ export default function Social() {
     const [searchEmail, setSearchEmail] = useState('')
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'weekly' | 'monthly'>('weekly')
+    const [leaderboardScope, setLeaderboardScope] = useState<'friends' | 'global'>('friends')
     const [successMessage, setSuccessMessage] = useState('')
     const [errorMessage, setErrorMessage] = useState('')
     const [reactionFeedback, setReactionFeedback] = useState<Record<string, string>>({})
@@ -126,9 +127,12 @@ export default function Social() {
 
     // Fetch leaderboard
     const { data: leaderboard } = useQuery({
-        queryKey: ['leaderboard', leaderboardTimeframe],
+        queryKey: ['leaderboard', leaderboardTimeframe, leaderboardScope],
         queryFn: async () => {
-            const { data } = await supabase.rpc('get_leaderboard', { timeframe: leaderboardTimeframe })
+            const { data } = await supabase.rpc('get_leaderboard', {
+                timeframe: leaderboardTimeframe,
+                scope: leaderboardScope
+            })
             return data || []
         }
     })
@@ -404,41 +408,7 @@ export default function Social() {
             </div>
 
             {activeTab === 'leaderboard' && (
-                <div className="space-y-8">
-                    {/* Badge Showcase (Vitrin) */}
-                    <Card className="p-6 md:p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border-indigo-100 dark:border-indigo-800/30">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-                                <PartyPopper className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rozet Vitrini</h2>
-                                <p className="text-sm text-gray-500">En son kazandığın rozetler</p>
-                            </div>
-                        </div>
-
-                        {recentBadges?.length === 0 ? (
-                            <div className="text-center py-6 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
-                                <p className="text-gray-500 text-sm">Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!</p>
-                            </div>
-                        ) : (
-                            <div className="grid md:grid-cols-3 gap-4">
-                                {recentBadges?.map((userBadge: any) => {
-                                    const b = userBadge.badges;
-                                    return (
-                                        <div key={userBadge.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center">
-                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner`} style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40` }}>
-                                                {b.icon}
-                                            </div>
-                                            <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
-                                            <p className="text-xs text-gray-500 px-2 line-clamp-2">{b.description}</p>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </Card>
-
+                <div className="space-y-8 mt-6">
                     {/* Leaderboard */}
                     <Card className="p-4 md:p-8 border-2 border-blue-100 dark:border-blue-900/30">
                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -448,36 +418,59 @@ export default function Social() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Liderlik Tablosu</h2>
-                                    <p className="text-sm text-gray-500">Arkadaşların arasındaki sıralaman</p>
+                                    <p className="text-sm text-gray-500">Çalışma sürelerine göre sıralama</p>
                                 </div>
                             </div>
 
-                            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                                <button
-                                    onClick={() => setLeaderboardTimeframe('weekly')}
-                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardTimeframe === 'weekly'
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    Haftalık
-                                </button>
-                                <button
-                                    onClick={() => setLeaderboardTimeframe('monthly')}
-                                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardTimeframe === 'monthly'
-                                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    Aylık
-                                </button>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setLeaderboardScope('friends')}
+                                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardScope === 'friends'
+                                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'
+                                            }`}
+                                    >
+                                        Arkadaşlar
+                                    </button>
+                                    <button
+                                        onClick={() => setLeaderboardScope('global')}
+                                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardScope === 'global'
+                                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'
+                                            }`}
+                                    >
+                                        Herkes
+                                    </button>
+                                </div>
+
+                                <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => setLeaderboardTimeframe('weekly')}
+                                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardTimeframe === 'weekly'
+                                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'
+                                            }`}
+                                    >
+                                        Haftalık
+                                    </button>
+                                    <button
+                                        onClick={() => setLeaderboardTimeframe('monthly')}
+                                        className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${leaderboardTimeframe === 'monthly'
+                                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-400'
+                                            }`}
+                                    >
+                                        Aylık
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         {leaderboard?.length === 0 ? (
                             <div className="text-center py-10 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                                 <Trophy className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                                <p className="text-gray-500">Henüz rekabet verisi yok. Arkadaşlarını ekleyerek başla!</p>
+                                <p className="text-gray-500">Henüz rekabet verisi yok.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -513,6 +506,40 @@ export default function Social() {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+                    </Card>
+
+                    {/* Badge Showcase (Vitrin) */}
+                    <Card className="p-6 md:p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border-indigo-100 dark:border-indigo-800/30">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
+                                <PartyPopper className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rozet Vitrini</h2>
+                                <p className="text-sm text-gray-500">En son kazandığın rozetler</p>
+                            </div>
+                        </div>
+
+                        {recentBadges?.length === 0 ? (
+                            <div className="text-center py-6 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-dashed border-indigo-200 dark:border-indigo-800">
+                                <p className="text-gray-500 text-sm">Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!</p>
+                            </div>
+                        ) : (
+                            <div className="grid md:grid-cols-3 gap-4">
+                                {recentBadges?.map((userBadge: any) => {
+                                    const b = userBadge.badges;
+                                    return (
+                                        <div key={userBadge.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center">
+                                            <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner`} style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40` }}>
+                                                {b.icon}
+                                            </div>
+                                            <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
+                                            <p className="text-xs text-gray-500 px-2 line-clamp-2">{b.description}</p>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         )}
                     </Card>
