@@ -1,3 +1,7 @@
+-- Drop existing functions to avoid return type mismatch errors
+DROP FUNCTION IF EXISTS get_leaderboard(TEXT);
+DROP FUNCTION IF EXISTS get_leaderboard(TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION get_leaderboard(timeframe TEXT DEFAULT 'weekly', scope TEXT DEFAULT 'friends')
 RETURNS TABLE (
   user_id UUID,
