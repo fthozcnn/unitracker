@@ -1,8 +1,8 @@
-# 🎓 UniTracker - Akıllı Üniversite Asistanı
+# 🎓 UniMarmara - Akıllı Üniversite Asistanı
 
-UniTracker, üniversite öğrencilerinin akademik hayatını organize etmesi, çalışma motivasyonunu artırması ve sosyal etkileşim kurması için geliştirilmiş kapsamlı bir PWA (Progressive Web App) uygulamasıdır.
+UniMarmara, üniversite öğrencilerinin akademik hayatını organize etmesi, çalışma motivasyonunu artırması ve sosyal etkileşim kurması için geliştirilmiş kapsamlı bir PWA (Progressive Web App) uygulamasıdır.
 
-![UniTracker Banner](public/logo.png)
+![UniMarmara Banner](public/logo.png)
 
 ## 🚀 Öne Çıkan Özellikler
 

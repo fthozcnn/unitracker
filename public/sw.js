@@ -14,7 +14,7 @@ self.addEventListener('push', (event) => {
     console.log('Push notification received:', event);
 
     let data = {
-        title: 'UniTracker',
+        title: 'UniMarmara',
         body: 'Yeni bir bildiriminiz var!',
         icon: '/vite.svg',
         badge: '/vite.svg',

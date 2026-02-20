@@ -1,6 +1,6 @@
 {
-    "name": "UniTracker",
-    "short_name": "UniTracker",
+    "name": "UniMarmara",
+    "short_name": "UniMarmara",
     "description": "Üniversite Ders ve Çalışma Takip Uygulaması",
     "start_url": "/",
     "display": "standalone",

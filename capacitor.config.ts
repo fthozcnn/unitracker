@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.fthozcnn.unitracker',
-  appName: 'UniTracker',
+  appName: 'UniMarmara',
   webDir: 'dist'
 };
 

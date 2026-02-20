@@ -279,7 +279,7 @@ export default function Dashboard() {
                             Ana Sayfa
                         </h1>
                         <div className="h-6 w-px bg-gray-200 dark:bg-gray-800" />
-                        <span className="text-gray-500 font-medium">UniTracker</span>
+                        <span className="text-gray-500 font-medium">UniMarmara</span>
                     </div>
                     <h2 className="text-lg text-gray-600 dark:text-gray-400 font-medium">
                         Hoşgeldin, {profile?.display_name || user?.email?.split('@')[0]} 👋

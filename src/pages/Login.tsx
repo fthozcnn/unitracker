@@ -57,7 +57,7 @@ export default function Login() {
                     <div className="mx-auto h-12 w-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4">
                         <GraduationCap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">UniTracker</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">UniMarmara</h1>
                     <p className="text-gray-500 dark:text-gray-400 mt-2">
                         {isSignUp ? 'Yeni hesap oluştur' : 'Hesabınıza giriş yapın'}
                     </p>

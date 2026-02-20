@@ -65,7 +65,7 @@ export default function Layout() {
                         <div className="w-10 h-10 bg-gray-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-gray-900">
                             <GraduationCap className="h-6 w-6" />
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniTracker</span>
+                        <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniMarmara</span>
                     </Link>
 
                     {/* Navigation */}

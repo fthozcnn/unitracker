@@ -329,7 +329,7 @@ export default function Settings() {
                                     onClick={() => {
                                         sendLocalNotification(
                                             '🔔 Test Bildirimi',
-                                            'UniTracker bildirimleri çalışıyor!',
+                                            'UniMarmara bildirimleri çalışıyor!',
                                             { tag: 'test' }
                                         )
                                     }}
@@ -360,7 +360,7 @@ export default function Settings() {
                     <div>
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Görünüm Seçenekleri</h2>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            UniTracker'ın renk teması, işletim sisteminizin temasına göre (Aydınlık/Karanlık) otomatik olarak ayarlanmaktadır.
+                            UniMarmara'nın renk teması, işletim sisteminizin temasına göre (Aydınlık/Karanlık) otomatik olarak ayarlanmaktadır.
                         </p>
                     </div>
                 </div>

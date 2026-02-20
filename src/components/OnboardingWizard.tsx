@@ -11,7 +11,7 @@ import {
 const STEPS = [
     {
         icon: Sparkles,
-        title: 'UniTracker\'a Hoş Geldin! 🎓',
+        title: 'UniMarmara\'ya Hoş Geldin! 🎓',
         description: 'Ders takibini kolaylaştıran, çalışma motivasyonunu artıran kişisel asistanın.',
         details: [
             'Derslerini takip et, çalışma süreni kaydet',
@@ -90,7 +90,7 @@ const STEPS = [
     {
         icon: Target,
         title: 'Hazırsın! 🎉',
-        description: 'Artık UniTracker\'ı kullanmaya başlayabilirsin.',
+        description: 'Artık UniMarmara\'yı kullanmaya başlayabilirsin.',
         details: [
             '✅ Derslerini ekle ve programını oluştur',
             '✅ Çalışma oturumlarını kaydet',

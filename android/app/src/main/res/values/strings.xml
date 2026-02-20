@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">UniTracker</string>
-    <string name="title_activity_main">UniTracker</string>
+    <string name="app_name">UniMarmara</string>
+    <string name="title_activity_main">UniMarmara</string>
     <string name="package_name">com.fthozcnn.unitracker</string>
     <string name="custom_url_scheme">com.fthozcnn.unitracker</string>
 </resources>
