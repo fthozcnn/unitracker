@@ -169,14 +169,29 @@ export default function Schedule() {
         reader.readAsText(file)
     }
 
-    const downloadTemplate = () => {
-        const content = "Matematik, Pazartesi, 09:00, 10:30, Amfi 1\nFizik, Salı, 11:00, 12:30, 202 Nolu Sınıf"
-        const blob = new Blob([content], { type: 'text/csv' })
+    const exportScheduleAsCSV = () => {
+        if (!schedule || schedule.length === 0) {
+            alert('İndirilecek ders programı bulunamadı.')
+            return
+        }
+
+        const lines = schedule.map((item: any) => {
+            const courseName = item.courses?.name || 'Bilinmeyen'
+            const dayName = DAYS.find(d => d.id === item.day_of_week)?.name || ''
+            return `${courseName}, ${dayName}, ${item.start_time}, ${item.end_time}, ${item.room || ''}`
+        })
+
+        const content = lines.join('\n')
+        // Add BOM for UTF-8 to ensure Excel opens it correctly with Turkish characters
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = 'ders_programi_sablonu.csv'
+        a.download = `ders_programim_${new Date().toISOString().split('T')[0]}.csv`
+        document.body.appendChild(a)
         a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
     }
 
     const addMutation = useMutation({
@@ -388,44 +403,11 @@ export default function Schedule() {
                         <div className="flex flex-wrap gap-3 justify-center">
                             <Button
                                 variant="secondary"
-                                onClick={() => {
-                                    if (!schedule || schedule.length === 0) {
-                                        alert('İndirilecek ders programı bulunamadı.')
-                                        return
-                                    }
-                                    const exportData = {
-                                        title: 'Ders Programı',
-                                        exported_at: new Date().toISOString(),
-                                        schedule: schedule.map((item: any) => ({
-                                            course: item.courses?.name || 'Bilinmeyen',
-                                            day: DAYS.find(d => d.id === item.day_of_week)?.name || '',
-                                            start_time: item.start_time,
-                                            end_time: item.end_time,
-                                            room: item.room || ''
-                                        }))
-                                    }
-                                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-                                    const url = URL.createObjectURL(blob)
-                                    const a = document.createElement('a')
-                                    a.href = url
-                                    a.download = `ders-programi-${new Date().toISOString().split('T')[0]}.json`
-                                    document.body.appendChild(a)
-                                    a.click()
-                                    document.body.removeChild(a)
-                                    URL.revokeObjectURL(url)
-                                }}
-                                className="flex-1 md:flex-none"
+                                onClick={exportScheduleAsCSV}
+                                className="flex-1 md:flex-none border-blue-200 dark:border-blue-800"
                             >
                                 <Download className="h-4 w-4 mr-2" />
-                                Programı İndir
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={downloadTemplate}
-                                className="flex-1 md:flex-none"
-                            >
-                                <Download className="h-4 w-4 mr-2" />
-                                Şablon İndir
+                                Programı İndir (Paylaş)
                             </Button>
                             <label className="flex-1 md:flex-none cursor-pointer">
                                 <input
