@@ -370,18 +370,61 @@ export default function Settings() {
             <Card className="p-6 border-2 border-red-200 dark:border-red-900/50">
                 <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Tehlikeli Bölge</h2>
                 <p className="text-sm text-gray-500 mb-4">
-                    İlerleme verilerinizi sıfırlayın. Dersler, ders programı ve arkadaş listeniz korunur.
-                    Çalışma oturumları, rozetler, XP, notlar ve sınav kayıtları silinir.
+                    İlerleme verilerinizi sıfırlayabilir veya hesabınızı tamamen silebilirsiniz.
+                    Hesap silme işlemi geri alınamaz ve tüm verileriniz (dersler, program, notlar vb.) tamamen kalıcı olarak silinir.
                 </p>
-                <Button
-                    variant="secondary"
-                    onClick={handleResetProgress}
-                    disabled={loading}
-                    className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
-                >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    {loading ? 'Sıfırlanıyor...' : 'İlerlemeyi Sıfırla'}
-                </Button>
+                <div className="flex flex-wrap gap-3">
+                    <Button
+                        variant="secondary"
+                        onClick={handleResetProgress}
+                        disabled={loading}
+                        className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40"
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {loading ? 'İşleniyor...' : 'İlerlemeyi Sıfırla'}
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={async () => {
+                            if (!user) return
+
+                            const confirmed = window.confirm(
+                                '⚠️ DİKKAT: Bu işlem GERİ ALINAMAZ!\n\n' +
+                                'Hesabınız ve hesabınıza bağlı TÜM veriler (dersler, program, çalışma oturumları, rozetler) kalıcı olarak SİLİNECEKTİR.\n\n' +
+                                'Devam etmek istiyor musunuz?'
+                            )
+
+                            if (!confirmed) return
+
+                            const doubleConfirm = window.confirm('SON UYARI: Hesabınızı kalıcı olarak silmek istediğinize emin misiniz?')
+                            if (!doubleConfirm) return
+
+                            setLoading(true)
+                            try {
+                                const { error } = await supabase.rpc('delete_user_account')
+
+                                if (error) {
+                                    console.error('Account deletion error:', error.message, error.details)
+                                    alert('⚠️ Hesap silinirken bir hata oluştu: ' + error.message)
+                                } else {
+                                    alert('✅ Hesabınız başarıyla silindi. Hoşçakalın!')
+                                    await supabase.auth.signOut()
+                                    window.location.href = '/' // Force redirect
+                                }
+                            } catch (error) {
+                                console.error('Account deletion error:', error)
+                                alert('Hesap silme işlemi sırasında beklenmeyen bir hata oluştu.')
+                            } finally {
+                                setLoading(false)
+                            }
+                        }}
+                        disabled={loading}
+                        className="bg-red-600 dark:bg-red-600 text-white border border-red-700 hover:bg-red-700 dark:hover:bg-red-700"
+                    >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {loading ? 'İşleniyor...' : 'Hesabımı Kalıcı Olarak Sil'}
+                    </Button>
+                </div>
             </Card>
         </div>
     )

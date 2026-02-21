@@ -350,11 +350,11 @@ export default function SyncPomodoro() {
                         Katıl
                     </Button>
                 </div>
-
-                {joinMutation.isError && (
-                    <p className="text-xs text-red-500 font-semibold text-center">Oda bulunamadı veya kapandı.</p>
-                )}
             </div>
+
+            {joinMutation.isError && (
+                <p className="text-xs text-red-500 font-semibold text-center">Oda bulunamadı veya kapandı.</p>
+            )}
         </Card>
     )
 }

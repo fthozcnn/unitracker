@@ -1,239 +1,33 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import StudyTimer from '../components/StudyTimer'
 import SyncPomodoro from '../components/SyncPomodoro'
 import ManualSessionModal from '../components/ManualSessionModal'
-import { Button, Card } from '../components/ui-base'
-import { Plus, Edit2, Trash2, Wind, CloudRain, Music, Maximize2, Minimize2, Volume2, VolumeX, Coffee } from 'lucide-react'
+import MusicPlayer from '../components/MusicPlayer'
+import { Card, Button } from '../components/ui-base'
+import { Plus, Edit2, Trash2, Maximize2, Minimize2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
-const AMBIENT_SOUNDS = [
-    { id: 'lofi', name: 'Lo-Fi Müzik', icon: Music },
-    { id: 'rain', name: 'Yağmur', icon: CloudRain },
-    { id: 'forest', name: 'Doğa', icon: Wind },
-    { id: 'cafe', name: 'Kütüphane / Kafe', icon: Coffee }
+const STUDY_TIPS = [
+    "Pomodoro tekniği, odaklanma süresini artırırken zihinsel yorgunluğu azaltır. Her 4 döngüde bir uzun mola vermeyi unutma! 🍅",
+    "Uyumadan önce öğrendiklerini tekrar etmek, bilgilerin uzun süreli hafızaya kalıcı olarak geçmesini sağlar. 😴",
+    "Çalışırken telefonunu başka bir odada bırakmak, odaklanma süreni ve verimini %40 oranında artırabilir. 📱",
+    "Zor veya sevmediğin konuları günün en enerjik olduğun ilk saatlerinde çalışmaya özen göster (Kurbağayı yut!). 🐸",
+    "Çalışma masanı düzenli tutmak, zihnindeki karmaşayı azaltır ve direkt hedef odaklı çalışmanı sağlar. 🧹",
+    "Aralıklı tekrar (Spaced Repetition) yöntemiyle öğrenmek, sınav gecesi sabahlamaktan çok daha etkilidir. 📈",
+    "Sadece okuyarak çalışmak yerine, kendi notlarını çıkararak veya başkasına anlatıyormuş gibi sesli özetleyerek çalış. 🗣️",
+    "Su içmeyi ihmal etme. Hafif bir dehidrasyon bile dikkat dağınıklığına ve baş ağrısına yol açabilir. 💧",
+    "Müzik dinleyerek çalışmayı seviyorsan, sözsüz lofi veya klasik müzik gibi enstrümantal türleri tercih et. 🎵",
+    "Mükemmeliyetçilikten kaçın; 'yeterince iyi' bir çalışma başlangıcı, hiç başlamamaktan her zaman daha iyidir. 🚀",
+    "Uyku düzenine dikkat et. Yetişkin bir bireyin tam odaklanabilmesi için günlük 7-8 saat kaliteli uyku şarttır. 🛏️",
+    "Hedeflerini küçük, yönetilebilir parçalara böl. 'Tüm kitabı bitireceğim' yerine 'İlk 10 sayfayı okuyacağım' demek başlatıcı gücü artırır. 🧩",
+    "Herhangi bir konuyu öğrenmenin en iyi yolu, o konuyu hiç bilmeyen birine basitleştirerek anlatabilmektir (Feynman Tekniği). 👨‍🏫",
+    "Haftalık ve günlük planlar yapmak, zihinsel yükü azaltır ve gün içindeki kararsızlık hissini yok eder. 📅",
+    "Çalışmaya başlamadan önce net bir hedef belirle: 'Bugün sadece türev testini bitireceğim' gibi spesifik amaçlar koy. 🎯"
 ]
-
-function createAmbientSound(ctx: AudioContext, type: string): { nodes: AudioNode[], stop: () => void } {
-    const nodes: AudioNode[] = []
-    const gainNode = ctx.createGain()
-    gainNode.gain.value = 0.35
-    gainNode.connect(ctx.destination)
-    nodes.push(gainNode)
-
-    if (type === 'rain') {
-        // Rain: filtered white noise with bandpass
-        const bufferSize = 2 * ctx.sampleRate
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-        const data = buffer.getChannelData(0)
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
-
-        const source = ctx.createBufferSource()
-        source.buffer = buffer
-        source.loop = true
-
-        const bandpass = ctx.createBiquadFilter()
-        bandpass.type = 'bandpass'
-        bandpass.frequency.value = 1800
-        bandpass.Q.value = 0.4
-
-        const highpass = ctx.createBiquadFilter()
-        highpass.type = 'highpass'
-        highpass.frequency.value = 400
-
-        source.connect(highpass)
-        highpass.connect(bandpass)
-        bandpass.connect(gainNode)
-        source.start()
-        nodes.push(source, bandpass, highpass)
-
-        // Add subtle low rumble
-        const rumbleBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-        const rumbleData = rumbleBuffer.getChannelData(0)
-        for (let i = 0; i < bufferSize; i++) rumbleData[i] = Math.random() * 2 - 1
-        const rumbleSource = ctx.createBufferSource()
-        rumbleSource.buffer = rumbleBuffer
-        rumbleSource.loop = true
-        const lowpass = ctx.createBiquadFilter()
-        lowpass.type = 'lowpass'
-        lowpass.frequency.value = 200
-        const rumbleGain = ctx.createGain()
-        rumbleGain.gain.value = 0.15
-        rumbleSource.connect(lowpass)
-        lowpass.connect(rumbleGain)
-        rumbleGain.connect(gainNode)
-        rumbleSource.start()
-        nodes.push(rumbleSource, lowpass, rumbleGain)
-
-    } else if (type === 'forest') {
-        // Forest: layered filtered noise for wind + birds chirps
-        const bufferSize = 2 * ctx.sampleRate
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-        const data = buffer.getChannelData(0)
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
-
-        const source = ctx.createBufferSource()
-        source.buffer = buffer
-        source.loop = true
-
-        const windFilter = ctx.createBiquadFilter()
-        windFilter.type = 'lowpass'
-        windFilter.frequency.value = 600
-        windFilter.Q.value = 1.0
-
-        const windGain = ctx.createGain()
-        windGain.gain.value = 0.5
-
-        source.connect(windFilter)
-        windFilter.connect(windGain)
-        windGain.connect(gainNode)
-        source.start()
-        nodes.push(source, windFilter, windGain)
-
-        // LFO to modulate wind
-        const lfo = ctx.createOscillator()
-        lfo.frequency.value = 0.15
-        const lfoGain = ctx.createGain()
-        lfoGain.gain.value = 200
-        lfo.connect(lfoGain)
-        lfoGain.connect(windFilter.frequency)
-        lfo.start()
-        nodes.push(lfo, lfoGain)
-
-        // Simulated bird chirps using high-freq oscillators
-        const birdGain = ctx.createGain()
-        birdGain.gain.value = 0.06
-        birdGain.connect(gainNode)
-        const birdOsc = ctx.createOscillator()
-        birdOsc.type = 'sine'
-        birdOsc.frequency.value = 3200
-        const birdLfo = ctx.createOscillator()
-        birdLfo.frequency.value = 5
-        const birdLfoGain = ctx.createGain()
-        birdLfoGain.gain.value = 800
-        birdLfo.connect(birdLfoGain)
-        birdLfoGain.connect(birdOsc.frequency)
-        birdOsc.connect(birdGain)
-        birdOsc.start()
-        birdLfo.start()
-        nodes.push(birdOsc, birdLfo, birdLfoGain, birdGain)
-
-    } else if (type === 'cafe') {
-        // Cafe: brownian noise for warm ambient chatter
-        const bufferSize = 4 * ctx.sampleRate
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-        const data = buffer.getChannelData(0)
-        let last = 0
-        for (let i = 0; i < bufferSize; i++) {
-            const white = Math.random() * 2 - 1
-            data[i] = (last + (0.02 * white)) / 1.02
-            last = data[i]
-            data[i] *= 3.5
-        }
-
-        const source = ctx.createBufferSource()
-        source.buffer = buffer
-        source.loop = true
-
-        const filter = ctx.createBiquadFilter()
-        filter.type = 'bandpass'
-        filter.frequency.value = 800
-        filter.Q.value = 0.3
-
-        source.connect(filter)
-        filter.connect(gainNode)
-        source.start()
-        nodes.push(source, filter)
-
-        // Add subtle "clink" texture with high frequency sparkle
-        const sparkleBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-        const sparkleData = sparkleBuffer.getChannelData(0)
-        for (let i = 0; i < bufferSize; i++) sparkleData[i] = Math.random() * 2 - 1
-        const sparkleSource = ctx.createBufferSource()
-        sparkleSource.buffer = sparkleBuffer
-        sparkleSource.loop = true
-        const sparkleFilter = ctx.createBiquadFilter()
-        sparkleFilter.type = 'highpass'
-        sparkleFilter.frequency.value = 3000
-        const sparkleGain = ctx.createGain()
-        sparkleGain.gain.value = 0.04
-        sparkleSource.connect(sparkleFilter)
-        sparkleFilter.connect(sparkleGain)
-        sparkleGain.connect(gainNode)
-        sparkleSource.start()
-        nodes.push(sparkleSource, sparkleFilter, sparkleGain)
-
-    } else if (type === 'lofi') {
-        // Lo-Fi: warm chord oscillators with subtle wow/flutter
-        const chordFreqs = [130.81, 164.81, 196.0, 261.63] // C3, E3, G3, C4
-
-        chordFreqs.forEach((freq, i) => {
-            const osc = ctx.createOscillator()
-            osc.type = 'sine'
-            osc.frequency.value = freq
-
-            const oscGain = ctx.createGain()
-            oscGain.gain.value = 0.12 - i * 0.02
-
-            // Add warmth with lowpass
-            const warmFilter = ctx.createBiquadFilter()
-            warmFilter.type = 'lowpass'
-            warmFilter.frequency.value = 800
-
-            // Subtle vibrato
-            const vibrato = ctx.createOscillator()
-            vibrato.frequency.value = 0.3 + i * 0.1
-            const vibratoGain = ctx.createGain()
-            vibratoGain.gain.value = 2
-            vibrato.connect(vibratoGain)
-            vibratoGain.connect(osc.frequency)
-
-            osc.connect(warmFilter)
-            warmFilter.connect(oscGain)
-            oscGain.connect(gainNode)
-            osc.start()
-            vibrato.start()
-            nodes.push(osc, oscGain, warmFilter, vibrato, vibratoGain)
-        })
-
-        // Tape hiss
-        const hissBuffer = ctx.createBuffer(1, 2 * ctx.sampleRate, ctx.sampleRate)
-        const hissData = hissBuffer.getChannelData(0)
-        for (let i = 0; i < hissBuffer.length; i++) hissData[i] = Math.random() * 2 - 1
-        const hissSource = ctx.createBufferSource()
-        hissSource.buffer = hissBuffer
-        hissSource.loop = true
-        const hissFilter = ctx.createBiquadFilter()
-        hissFilter.type = 'highpass'
-        hissFilter.frequency.value = 4000
-        const hissGain = ctx.createGain()
-        hissGain.gain.value = 0.02
-        hissSource.connect(hissFilter)
-        hissFilter.connect(hissGain)
-        hissGain.connect(gainNode)
-        hissSource.start()
-        nodes.push(hissSource, hissFilter, hissGain)
-    }
-
-    return {
-        nodes,
-        stop: () => {
-            gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
-            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5)
-            setTimeout(() => {
-                nodes.forEach(n => {
-                    try {
-                        if ('stop' in n && typeof (n as any).stop === 'function') (n as any).stop()
-                    } catch (e) { /* already stopped */ }
-                    try { n.disconnect() } catch (e) { /* ok */ }
-                })
-            }, 600)
-        }
-    }
-}
 
 export default function Study() {
     const { user } = useAuth()
@@ -241,39 +35,10 @@ export default function Study() {
     const [isManualModalOpen, setIsManualModalOpen] = useState(false)
     const [editingSession, setEditingSession] = useState<any>(null)
     const [isZenMode, setIsZenMode] = useState(false)
-    const [activeSound, setActiveSound] = useState<string | null>(null)
-    const audioCtxRef = useRef<AudioContext | null>(null)
-    const soundRef = useRef<{ stop: () => void } | null>(null)
-
-    const toggleSound = useCallback((soundId: string) => {
-        // Stop current sound
-        if (soundRef.current) {
-            soundRef.current.stop()
-            soundRef.current = null
-        }
-
-        if (activeSound === soundId) {
-            setActiveSound(null)
-            if (audioCtxRef.current) {
-                audioCtxRef.current.close()
-                audioCtxRef.current = null
-            }
-            return
-        }
-
-        // Start new sound
-        const ctx = new AudioContext()
-        audioCtxRef.current = ctx
-        const result = createAmbientSound(ctx, soundId)
-        soundRef.current = result
-        setActiveSound(soundId)
-    }, [activeSound])
+    const [dailyTip, setDailyTip] = useState(STUDY_TIPS[0])
 
     useEffect(() => {
-        return () => {
-            if (soundRef.current) soundRef.current.stop()
-            if (audioCtxRef.current) audioCtxRef.current.close()
-        }
+        setDailyTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)])
     }, [])
 
     useEffect(() => {
@@ -341,42 +106,16 @@ export default function Study() {
                     <StudyTimer />
                 </div>
 
-                {/* Ambient Sounds Section */}
                 {/* Sidebar */}
                 <div className="space-y-6">
                     {/* Sync Pomodoro */}
                     <SyncPomodoro />
 
-                    <Card className="p-6">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Volume2 className="h-5 w-5 text-blue-500" />
-                            <h3 className="font-bold text-gray-900 dark:text-white">Odaklanma Sesleri</h3>
-                        </div>
-                        <div className="space-y-3">
-                            {AMBIENT_SOUNDS.map((sound) => (
-                                <button
-                                    key={sound.id}
-                                    onClick={() => toggleSound(sound.id)}
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${activeSound === sound.id
-                                        ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800 text-blue-600'
-                                        : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 text-gray-500 hover:border-gray-200'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <sound.icon className="h-4 w-4" />
-                                        <span className="text-sm font-semibold">{sound.name}</span>
-                                    </div>
-                                    {activeSound === sound.id ? <Volume2 className="h-4 w-4 animate-pulse" /> : <VolumeX className="h-4 w-4 opacity-50" />}
-                                </button>
-                            ))}
-                        </div>
-                    </Card>
-
                     {/* Stats/Info Section */}
                     <Card className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none shadow-xl shadow-blue-500/20">
                         <h3 className="font-bold text-lg mb-2">Günün İpucu 💡</h3>
                         <p className="text-sm text-blue-50 opacity-90 leading-relaxed">
-                            "Pomodoro tekniği, odaklanma süresini artırırken zihinsel yorgunluğu azaltır. Her 4 döngüde bir uzun mola vermeyi unutma!"
+                            "{dailyTip}"
                         </p>
                     </Card>
                 </div>
@@ -436,23 +175,13 @@ export default function Study() {
                             <p className="text-gray-400 font-medium">Sadece sen ve hedeflerin.</p>
                         </div>
                         <StudyTimer />
-                        <div className="mt-12 flex justify-center gap-6">
-                            {AMBIENT_SOUNDS.map(sound => (
-                                <button
-                                    key={sound.id}
-                                    onClick={() => toggleSound(sound.id)}
-                                    className={`p-4 rounded-2xl border-2 transition-all ${activeSound === sound.id
-                                        ? 'border-blue-500 bg-blue-500/10 text-blue-500'
-                                        : 'border-transparent text-gray-400 hover:text-gray-600'
-                                        }`}
-                                >
-                                    <sound.icon className="h-6 w-6" />
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
             )}
+
+            <div className="fixed bottom-6 right-6 z-50">
+                <MusicPlayer />
+            </div>
 
             <ManualSessionModal
                 isOpen={isManualModalOpen}

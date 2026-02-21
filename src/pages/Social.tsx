@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
-import * as Icons from 'lucide-react'
-import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper, Medal, Trash2 } from 'lucide-react'
+import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper, Trash2 } from 'lucide-react'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
@@ -138,29 +137,7 @@ export default function Social() {
         }
     })
 
-    // Fetch user's recent badges for the showcase
-    const { data: recentBadges, isLoading: isLoadingBadges } = useQuery({
-        queryKey: ['recent_badges'],
-        queryFn: async () => {
-            const { data } = await supabase
-                .from('user_badges')
-                .select(`
-                    id,
-                    earned_at,
-                    badges (
-                        id,
-                        name,
-                        icon,
-                        color,
-                        description
-                    )
-                `)
-                .eq('user_id', user?.id)
-                .order('earned_at', { ascending: false })
-                .limit(3)
-            return data || []
-        }
-    })
+    // Badge count is now fetched with the Leaderboard data.
 
     // Search users
     const handleSearch = async () => {
@@ -399,7 +376,7 @@ export default function Social() {
                         }`}
                 >
                     <Trophy className="h-4 w-4" />
-                    Liderlik & Vitrin
+                    Liderlik
                 </button>
                 <button
                     onClick={() => setActiveTab('friends')}
@@ -544,9 +521,15 @@ export default function Social() {
                                                     </span>
                                                 </Button>
                                             )}
-                                            <div className="text-right">
-                                                <p className="font-black text-lg text-blue-600 dark:text-blue-400">{Math.round(entry.total_minutes / 60)}h</p>
-                                                <p className="text-[10px] uppercase font-bold text-gray-400">{entry.total_minutes % 60}m</p>
+                                            <div className="text-right flex items-center justify-end gap-3">
+                                                <div className="flex flex-col items-center justify-center mr-2">
+                                                    <span className="text-lg font-bold text-gray-800 dark:text-gray-200">{entry.badge_count || 0}</span>
+                                                    <span className="text-[10px] uppercase font-bold text-gray-400">Rozet</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-black text-lg text-blue-600 dark:text-blue-400">{Math.round(entry.total_minutes / 60)}h</p>
+                                                    <p className="text-[10px] uppercase font-bold text-gray-400">{entry.total_minutes % 60}m</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -555,47 +538,6 @@ export default function Social() {
                         )}
                     </Card>
 
-                    {/* Badge Showcase (Vitrin) */}
-                    <Card className="p-6 md:p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 border-indigo-100 dark:border-indigo-800/30">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl">
-                                <PartyPopper className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rozet Vitrini</h2>
-                                <p className="text-sm text-gray-500">En son kazandığın rozetler</p>
-                            </div>
-                        </div>
-
-                        {isLoadingBadges ? (
-                            <GridSkeleton />
-                        ) : recentBadges?.length === 0 ? (
-                            <div className="w-full">
-                                <EmptyState
-                                    icon={Medal}
-                                    title="Rozet Kazanılmadı"
-                                    description="Henüz sergilenecek rozetin yok. Çalışmaya başla ve kazan!"
-                                    color="gray"
-                                />
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {recentBadges?.map((item: any) => {
-                                    const b = item.badges;
-                                    const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
-                                    return (
-                                        <div key={b.id} className="relative group p-4 border rounded-2xl bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center hover:border-indigo-200">
-                                            <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-3 shadow-inner" style={{ backgroundColor: `${b.color}20`, color: b.color, border: `2px solid ${b.color}40`, boxShadow: `inset 0 2px 4px 0 shadow-${b.color}-500/10` }}>
-                                                <IconComponent className="h-8 w-8" />
-                                            </div>
-                                            <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">{b.name}</h3>
-                                            <p className="text-xs text-gray-500 px-2 line-clamp-2">{b.description}</p>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        )}
-                    </Card>
                 </div>
             )}
 

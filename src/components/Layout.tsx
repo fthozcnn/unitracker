@@ -16,6 +16,7 @@ import {
     ClipboardList
 } from 'lucide-react'
 import clsx from 'clsx'
+import NotificationCenter from './NotificationCenter'
 
 export default function Layout() {
     const { signOut, user } = useAuth()
@@ -60,13 +61,18 @@ export default function Layout() {
                 isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="h-full flex flex-col p-6">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center space-x-3 px-2 mb-10">
-                        <div className="w-10 h-10 bg-gray-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-gray-900">
-                            <GraduationCap className="h-6 w-6" />
+                    {/* Logo and Notifications Header */}
+                    <div className="flex items-center justify-between px-2 mb-10">
+                        <Link to="/" className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gray-900 dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-gray-900">
+                                <GraduationCap className="h-6 w-6" />
+                            </div>
+                            <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniMarmara</span>
+                        </Link>
+                        <div className="hidden lg:block relative z-50">
+                            <NotificationCenter position="left" />
                         </div>
-                        <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">UniMarmara</span>
-                    </Link>
+                    </div>
 
                     {/* Navigation */}
                     <nav className="flex-1 space-y-1">
@@ -103,9 +109,11 @@ export default function Layout() {
                                 </p>
                                 <p className="text-xs text-gray-400 truncate">Öğrenci</p>
                             </div>
-                            <button onClick={signOut} className="ml-2 text-gray-400 hover:text-red-500 transition-colors">
-                                <LogOut className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button onClick={signOut} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                                    <LogOut className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -114,18 +122,18 @@ export default function Layout() {
             {/* Main Content */}
             < div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white dark:bg-black" >
                 {/* Mobile Header */}
-                < header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 h-16" >
-                    <div className="flex items-center gap-2">
+                <header className="lg:hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between px-4 h-16">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                            className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                         >
                             <Menu className="h-6 w-6" />
                         </button>
-                        <Link to="/" className="flex items-center">
-                        </Link>
+                        <span className="font-bold text-lg text-gray-900 dark:text-white tracking-tight">UniMarmara</span>
                     </div>
-                </header >
+                    <NotificationCenter position="right" />
+                </header>
 
                 <main className="flex-1 overflow-y-auto p-4 lg:p-12 pb-24 lg:pb-12">
                     <Outlet />

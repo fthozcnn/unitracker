@@ -24,6 +24,7 @@ export default function Schedule() {
     const [uploadLoading, setUploadLoading] = useState(false)
     const [isCourseModalOpen, setIsCourseModalOpen] = useState(false)
     const [editingCourse, setEditingCourse] = useState<any>(null)
+    const [activeTab, setActiveTab] = useState<'schedule' | 'courses'>('schedule')
 
     const [formData, setFormData] = useState({
         course_id: '',
@@ -240,295 +241,326 @@ export default function Schedule() {
                 </p>
             </div>
 
-            {/* Add Schedule Form */}
-            {isAdding && (
-                <Card className="p-6 border-2 border-blue-500/20 bg-blue-50/10 dark:bg-blue-900/5">
-                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ders Seç</label>
-                            <select
-                                required
-                                value={formData.course_id}
-                                onChange={e => setFormData({ ...formData, course_id: e.target.value })}
-                                className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
-                            >
-                                <option value="">Ders Seçiniz...</option>
-                                {courses?.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Gün</label>
-                            <select
-                                value={formData.day_of_week}
-                                onChange={e => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
-                                className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
-                            >
-                                {DAYS.map(d => (
-                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Başlangıç</label>
-                            <input
-                                type="time"
-                                value={formData.start_time}
-                                onChange={e => setFormData({ ...formData, start_time: e.target.value })}
-                                className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Bitiş</label>
-                            <input
-                                type="time"
-                                value={formData.end_time}
-                                onChange={e => setFormData({ ...formData, end_time: e.target.value })}
-                                className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Derslik</label>
-                            <input
-                                type="text"
-                                placeholder="Örn: Amfi 1"
-                                value={formData.room}
-                                onChange={e => setFormData({ ...formData, room: e.target.value })}
-                                className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
-                            />
-                        </div>
-                        <div className="md:col-span-3 lg:col-span-5 flex justify-end gap-3 mt-4">
-                            <Button variant="ghost" onClick={() => setIsAdding(false)}>Vazgeç</Button>
-                            <Button type="submit" disabled={addMutation.isPending}>
-                                {addMutation.isPending ? 'Ekleniyor...' : 'Kaydet'}
-                            </Button>
-                        </div>
-                    </form>
-                </Card>
-            )}
+            {/* Tab System */}
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl w-fit flex-wrap gap-1">
+                <button
+                    onClick={() => setActiveTab('schedule')}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'schedule'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <CalendarDays className="h-4 w-4" />
+                    Ders Programı
+                </button>
+                <button
+                    onClick={() => setActiveTab('courses')}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'courses'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <BookOpen className="h-4 w-4" />
+                    Derslerim
+                </button>
+            </div>
 
-            {/* Weekly Schedule Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                {DAYS.map(day => (
-                    <div key={day.id} className="space-y-4">
-                        <div className="text-center p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl">
-                            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tighter">{day.name}</h3>
-                        </div>
-
-                        <div className="space-y-3 md:min-h-[300px]">
-                            {schedule?.filter((s: any) => s.day_of_week === day.id).map((item: any) => (
-                                <Card key={item.id} className="p-4 relative group hover:ring-2 ring-blue-500/20 transition-all">
-                                    <button
-                                        onClick={() => deleteMutation.mutate(item.id)}
-                                        className="absolute top-2 right-2 p-1.5 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+            {activeTab === 'schedule' && (
+                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Add Schedule Form */}
+                    {isAdding && (
+                        <Card className="p-6 border-2 border-blue-500/20 bg-blue-50/10 dark:bg-blue-900/5">
+                            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Ders Seç</label>
+                                    <select
+                                        required
+                                        value={formData.course_id}
+                                        onChange={e => setFormData({ ...formData, course_id: e.target.value })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
                                     >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                        <option value="">Ders Seçiniz...</option>
+                                        {courses?.map((c: any) => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Gün</label>
+                                    <select
+                                        value={formData.day_of_week}
+                                        onChange={e => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
+                                    >
+                                        {DAYS.map(d => (
+                                            <option key={d.id} value={d.id}>{d.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Başlangıç</label>
+                                    <input
+                                        type="time"
+                                        value={formData.start_time}
+                                        onChange={e => setFormData({ ...formData, start_time: e.target.value })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Bitiş</label>
+                                    <input
+                                        type="time"
+                                        value={formData.end_time}
+                                        onChange={e => setFormData({ ...formData, end_time: e.target.value })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Derslik</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Örn: Amfi 1"
+                                        value={formData.room}
+                                        onChange={e => setFormData({ ...formData, room: e.target.value })}
+                                        className="w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 ring-blue-500 outline-none"
+                                    />
+                                </div>
+                                <div className="md:col-span-3 lg:col-span-5 flex justify-end gap-3 mt-4">
+                                    <Button variant="ghost" onClick={() => setIsAdding(false)}>Vazgeç</Button>
+                                    <Button type="submit" disabled={addMutation.isPending}>
+                                        {addMutation.isPending ? 'Ekleniyor...' : 'Kaydet'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </Card>
+                    )}
 
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.courses?.color }} />
-                                        <span className="text-[10px] font-black uppercase text-gray-400 truncate tracking-tight">
-                                            {item.courses?.name}
-                                        </span>
-                                    </div>
+                    {/* Weekly Schedule Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                        {DAYS.map(day => (
+                            <div key={day.id} className="space-y-4">
+                                <div className="text-center p-3 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl">
+                                    <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tighter">{day.name}</h3>
+                                </div>
 
-                                    <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                                        <Clock className="h-3 w-3 text-blue-500" />
-                                        {item.start_time.slice(0, 5)} - {item.end_time.slice(0, 5)}
-                                    </div>
+                                <div className="space-y-3 md:min-h-[300px]">
+                                    {schedule?.filter((s: any) => s.day_of_week === day.id).map((item: any) => (
+                                        <Card key={item.id} className="p-4 relative group hover:ring-2 ring-blue-500/20 transition-all">
+                                            <button
+                                                onClick={() => deleteMutation.mutate(item.id)}
+                                                className="absolute top-2 right-2 p-1.5 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
 
-                                    {item.room && (
-                                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
-                                            <MapPin className="h-3 w-3" />
-                                            {item.room}
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.courses?.color }} />
+                                                <span className="text-[10px] font-black uppercase text-gray-400 truncate tracking-tight">
+                                                    {item.courses?.name}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                                                <Clock className="h-3 w-3 text-blue-500" />
+                                                {item.start_time.slice(0, 5)} - {item.end_time.slice(0, 5)}
+                                            </div>
+
+                                            {item.room && (
+                                                <div className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 bg-gray-50 dark:bg-gray-800/50 p-1.5 rounded-lg border border-gray-100 dark:border-gray-700">
+                                                    <MapPin className="h-3 w-3" />
+                                                    {item.room}
+                                                </div>
+                                            )}
+                                        </Card>
+                                    ))}
+                                    {schedule?.filter((s: any) => s.day_of_week === day.id).length === 0 && (
+                                        <div className="hidden md:flex h-full items-center justify-center p-8 border-2 border-dashed border-gray-50 dark:border-gray-900 rounded-3xl opacity-30 grayscale">
+                                            <BookOpen className="h-6 w-6 text-gray-400" />
                                         </div>
                                     )}
-                                </Card>
-                            ))}
-                            {schedule?.filter((s: any) => s.day_of_week === day.id).length === 0 && (
-                                <div className="hidden md:flex h-full items-center justify-center p-8 border-2 border-dashed border-gray-50 dark:border-gray-900 rounded-3xl opacity-30 grayscale">
-                                    <BookOpen className="h-6 w-6 text-gray-400" />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Courses Management Section (Moved from Courses.tsx) */}
-            <div className="pt-8 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div>
-                        <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Derslerim</h2>
-                        <p className="text-gray-500 dark:text-gray-400">Dönem derslerinizi buradan yönetebilirsiniz.</p>
-                    </div>
-                    <Button onClick={handleAddNewCourse} className="bg-indigo-600 hover:bg-indigo-700">
-                        <Plus className="h-5 w-5 mr-2" />
-                        Yeni Ders Ekle
-                    </Button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {courses?.map((course: any) => (
-                        <Card key={course.id} className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                            {/* Color Banner */}
-                            <div className="h-2 w-full absolute top-0 left-0" style={{ backgroundColor: course.color }} />
-
-                            <div className="p-5">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                                                {course.code || 'Bilinmiyor'}
-                                            </span>
-                                            <span className="text-xs text-gray-500">{course.credit} Kredi</span>
-                                        </div>
-                                        <h3 className="font-bold text-lg text-gray-900 dark:text-white line-clamp-1" title={course.name}>
-                                            {course.name}
-                                        </h3>
-                                    </div>
-
-                                    <Menu as="div" className="relative ml-2">
-                                        <Menu.Button className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
-                                            <MoreVertical className="h-5 w-5" />
-                                        </Menu.Button>
-                                        <Transition
-                                            as={Fragment}
-                                            enter="transition ease-out duration-100"
-                                            enterFrom="transform opacity-0 scale-95"
-                                            enterTo="transform opacity-100 scale-100"
-                                            leave="transition ease-in duration-75"
-                                            leaveFrom="transform opacity-100 scale-100"
-                                            leaveTo="transform opacity-0 scale-95"
-                                        >
-                                            <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                                <div className="py-1">
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => handleEditCourse(course)}
-                                                                className={`${active ? 'bg-gray-100 dark:bg-gray-700' : ''
-                                                                    } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200`}
-                                                            >
-                                                                <Edit2 className="mr-3 h-4 w-4" />
-                                                                Düzenle
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                    <Menu.Item>
-                                                        {({ active }) => (
-                                                            <button
-                                                                onClick={() => deleteCourseMutation.mutate(course.id)}
-                                                                className={`${active ? 'bg-red-50 dark:bg-red-900/20' : ''
-                                                                    } flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400`}
-                                                            >
-                                                                <Trash2 className="mr-3 h-4 w-4" />
-                                                                Sil
-                                                            </button>
-                                                        )}
-                                                    </Menu.Item>
-                                                </div>
-                                            </Menu.Items>
-                                        </Transition>
-                                    </Menu>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                                        <BookOpen className="h-4 w-4 mr-2 text-gray-400" />
-                                        <span>Syllabus: %{0} Tamamlandı</span>
-                                    </div>
-                                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                                        <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                                        <span>Devamsızlık: 0/{course.attendance_limit}</span>
-                                    </div>
                                 </div>
                             </div>
-                        </Card>
-                    ))}
+                        ))}
+                    </div>
 
-                    {/* Empty State */}
-                    {courses?.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl">
-                            <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 dark:text-white">Henüz hiç ders eklemediniz</h3>
-                            <p className="text-gray-500 mt-1 mb-6">Derslerinizi ekleyerek takibe başlayın.</p>
-                            <Button onClick={handleAddNewCourse}>İlk Dersi Ekle</Button>
+                    {/* Action Buttons - Moved for Schedule tab */}
+                    <div className="pt-8 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex flex-wrap gap-3 justify-center">
+                            <Button
+                                variant="secondary"
+                                onClick={() => {
+                                    if (!schedule || schedule.length === 0) {
+                                        alert('İndirilecek ders programı bulunamadı.')
+                                        return
+                                    }
+                                    const exportData = {
+                                        title: 'Ders Programı',
+                                        exported_at: new Date().toISOString(),
+                                        schedule: schedule.map((item: any) => ({
+                                            course: item.courses?.name || 'Bilinmeyen',
+                                            day: DAYS.find(d => d.id === item.day_of_week)?.name || '',
+                                            start_time: item.start_time,
+                                            end_time: item.end_time,
+                                            room: item.room || ''
+                                        }))
+                                    }
+                                    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+                                    const url = URL.createObjectURL(blob)
+                                    const a = document.createElement('a')
+                                    a.href = url
+                                    a.download = `ders-programi-${new Date().toISOString().split('T')[0]}.json`
+                                    document.body.appendChild(a)
+                                    a.click()
+                                    document.body.removeChild(a)
+                                    URL.revokeObjectURL(url)
+                                }}
+                                className="flex-1 md:flex-none"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                Programı İndir
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                onClick={downloadTemplate}
+                                className="flex-1 md:flex-none"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                Şablon İndir
+                            </Button>
+                            <label className="flex-1 md:flex-none cursor-pointer">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    className="hidden"
+                                    onChange={handleCSVUpload}
+                                    disabled={uploadLoading}
+                                />
+                                <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full">
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    {uploadLoading ? 'Yükleniyor...' : 'CSV Yükle'}
+                                </div>
+                            </label>
+                            <Button onClick={() => setIsAdding(true)} className="flex-1 md:flex-none shadow-lg shadow-blue-500/20">
+                                <Plus className="h-5 w-5 mr-2" />
+                                Ders Ekle
+                            </Button>
                         </div>
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
 
-            {/* Action Buttons - Moved to bottom */}
-            <div className="pt-8 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex flex-wrap gap-3 justify-center">
-                    <Button
-                        variant="secondary"
-                        onClick={() => {
-                            if (!schedule || schedule.length === 0) {
-                                alert('İndirilecek ders programı bulunamadı.')
-                                return
-                            }
-                            const exportData = {
-                                title: 'Ders Programı',
-                                exported_at: new Date().toISOString(),
-                                schedule: schedule.map((item: any) => ({
-                                    course: item.courses?.name || 'Bilinmeyen',
-                                    day: DAYS.find(d => d.id === item.day_of_week)?.name || '',
-                                    start_time: item.start_time,
-                                    end_time: item.end_time,
-                                    room: item.room || ''
-                                }))
-                            }
-                            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-                            const url = URL.createObjectURL(blob)
-                            const a = document.createElement('a')
-                            a.href = url
-                            a.download = `ders-programi-${new Date().toISOString().split('T')[0]}.json`
-                            document.body.appendChild(a)
-                            a.click()
-                            document.body.removeChild(a)
-                            URL.revokeObjectURL(url)
-                        }}
-                        className="flex-1 md:flex-none"
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        Programı İndir
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        onClick={downloadTemplate}
-                        className="flex-1 md:flex-none"
-                    >
-                        <Download className="h-4 w-4 mr-2" />
-                        Şablon İndir
-                    </Button>
-                    <label className="flex-1 md:flex-none cursor-pointer">
-                        <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={handleCSVUpload}
-                            disabled={uploadLoading}
-                        />
-                        <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full">
-                            <Upload className="h-4 w-4 mr-2" />
-                            {uploadLoading ? 'Yükleniyor...' : 'CSV Yükle'}
+            {activeTab === 'courses' && (
+                <div className="pt-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Courses Management Section (Moved from Courses.tsx) */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                        <div>
+                            <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Derslerim</h2>
+                            <p className="text-gray-500 dark:text-gray-400">Dönem derslerinizi buradan yönetebilirsiniz.</p>
                         </div>
-                    </label>
-                    <Button onClick={() => setIsAdding(true)} className="flex-1 md:flex-none shadow-lg shadow-blue-500/20">
-                        <Plus className="h-5 w-5 mr-2" />
-                        Ders Ekle
-                    </Button>
+                        <Button onClick={handleAddNewCourse} className="bg-indigo-600 hover:bg-indigo-700">
+                            <Plus className="h-5 w-5 mr-2" />
+                            Yeni Ders Ekle
+                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {courses?.map((course: any) => (
+                            <Card key={course.id} className="relative overflow-hidden group hover:shadow-md transition-shadow">
+                                {/* Color Banner */}
+                                <div className="h-2 w-full absolute top-0 left-0" style={{ backgroundColor: course.color }} />
+
+                                <div className="p-5">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                                                    {course.code || 'Bilinmiyor'}
+                                                </span>
+                                                <span className="text-xs text-gray-500">{course.credit} Kredi</span>
+                                            </div>
+                                            <h3 className="font-bold text-lg text-gray-900 dark:text-white line-clamp-1" title={course.name}>
+                                                {course.name}
+                                            </h3>
+                                        </div>
+
+                                        <Menu as="div" className="relative ml-2">
+                                            <Menu.Button className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500">
+                                                <MoreVertical className="h-5 w-5" />
+                                            </Menu.Button>
+                                            <Transition
+                                                as={Fragment}
+                                                enter="transition ease-out duration-100"
+                                                enterFrom="transform opacity-0 scale-95"
+                                                enterTo="transform opacity-100 scale-100"
+                                                leave="transition ease-in duration-75"
+                                                leaveFrom="transform opacity-100 scale-100"
+                                                leaveTo="transform opacity-0 scale-95"
+                                            >
+                                                <Menu.Items className="absolute right-0 mt-2 w-48 origin-top-right bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                                    <div className="py-1">
+                                                        <Menu.Item>
+                                                            {({ active }) => (
+                                                                <button
+                                                                    onClick={() => handleEditCourse(course)}
+                                                                    className={`${active ? 'bg-gray-100 dark:bg-gray-700' : ''
+                                                                        } flex w-full items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200`}
+                                                                >
+                                                                    <Edit2 className="mr-3 h-4 w-4" />
+                                                                    Düzenle
+                                                                </button>
+                                                            )}
+                                                        </Menu.Item>
+                                                        <Menu.Item>
+                                                            {({ active }) => (
+                                                                <button
+                                                                    onClick={() => deleteCourseMutation.mutate(course.id)}
+                                                                    className={`${active ? 'bg-red-50 dark:bg-red-900/20' : ''
+                                                                        } flex w-full items-center px-4 py-2 text-sm text-red-600 dark:text-red-400`}
+                                                                >
+                                                                    <Trash2 className="mr-3 h-4 w-4" />
+                                                                    Sil
+                                                                </button>
+                                                            )}
+                                                        </Menu.Item>
+                                                    </div>
+                                                </Menu.Items>
+                                            </Transition>
+                                        </Menu>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                                            <BookOpen className="h-4 w-4 mr-2 text-gray-400" />
+                                            <span>Syllabus: %{0} Tamamlandı</span>
+                                        </div>
+                                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                                            <Clock className="h-4 w-4 mr-2 text-gray-400" />
+                                            <span>Devamsızlık: 0/{course.attendance_limit}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+
+                        {/* Empty State */}
+                        {courses?.length === 0 && (
+                            <div className="col-span-full py-12 text-center border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-3xl">
+                                <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Henüz hiç ders eklemediniz</h3>
+                                <p className="text-gray-500 mt-1 mb-6">Derslerinizi ekleyerek takibe başlayın.</p>
+                                <Button onClick={handleAddNewCourse}>İlk Dersi Ekle</Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )
+            }
 
             <CourseModal
                 isOpen={isCourseModalOpen}
                 onClose={() => setIsCourseModalOpen(false)}
                 course={editingCourse}
             />
-        </div>
+        </div >
     )
 }
