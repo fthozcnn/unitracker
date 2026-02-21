@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import NotificationCenter from './NotificationCenter'
 
 export default function Layout() {
-    const { signOut, user } = useAuth()
+    const { signOut, user, profile } = useAuth()
     const location = useLocation()
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -46,7 +46,7 @@ export default function Layout() {
     ]
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex transition-colors duration-200">
+        <div className="h-screen overflow-hidden bg-gray-50 dark:bg-gray-900 flex transition-colors duration-200">
             {/* Mobile Menu Overlay */}
             {isMobileMenuOpen && (
                 <div
@@ -99,22 +99,22 @@ export default function Layout() {
 
                     {/* User Profile - Clean */}
                     <div className="mt-auto pt-6 border-t border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group">
-                            <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm border-2 border-white dark:border-gray-700 shadow-sm">
-                                {user?.email?.[0].toUpperCase()}
+                        <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group">
+                            <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm border-2 border-white dark:border-gray-700 shadow-sm">
+                                {profile?.display_name ? profile.display_name[0].toUpperCase() : user?.email?.[0].toUpperCase()}
                             </div>
                             <div className="ml-3 overflow-hidden flex-1">
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                                    {user?.email?.split('@')[0]}
+                                    {profile?.display_name || user?.email?.split('@')[0]}
                                 </p>
                                 <p className="text-xs text-gray-400 truncate">Öğrenci</p>
                             </div>
-                            <div className="flex items-center gap-1">
-                                <button onClick={signOut} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                            <div className="flex items-center gap-1 pl-2">
+                                <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); signOut(); }} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
                                     <LogOut className="h-5 w-5" />
                                 </button>
                             </div>
-                        </div>
+                        </Link>
                     </div>
                 </div>
             </aside >
