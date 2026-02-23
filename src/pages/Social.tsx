@@ -3,14 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
-import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper, Trash2 } from 'lucide-react'
+import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as CalendarIcon, Users2, Megaphone, PartyPopper, Trash2, Swords } from 'lucide-react'
+import StudyDuel from '../components/StudyDuel'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
 
 export default function Social() {
     const { user } = useAuth()
     const queryClient = useQueryClient()
-    const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard'>('leaderboard')
+    const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard' | 'duels'>('leaderboard')
     const [searchEmail, setSearchEmail] = useState('')
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [leaderboardTimeframe, setLeaderboardTimeframe] = useState<'weekly' | 'monthly'>('weekly')
@@ -397,6 +398,16 @@ export default function Social() {
                 >
                     <Target className="h-4 w-4" />
                     Challenge'lar
+                </button>
+                <button
+                    onClick={() => setActiveTab('duels')}
+                    className={`px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${activeTab === 'duels'
+                        ? 'bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                >
+                    <Swords className="h-4 w-4" />
+                    Düellolar
                 </button>
             </div>
 
@@ -882,6 +893,12 @@ export default function Social() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {activeTab === 'duels' && (
+                <div className="mt-6 max-w-2xl">
+                    <StudyDuel friends={friends || []} />
                 </div>
             )}
         </div>
