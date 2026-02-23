@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import clsx from 'clsx'
 import NotificationCenter from './NotificationCenter'
+import GlobalChat from './GlobalChat'
 
 export default function Layout() {
     const { signOut, user, profile } = useAuth()
@@ -176,6 +177,11 @@ export default function Layout() {
                     </nav>
                 )}
             </div >
+
+            {/* Global Chat widget - visible on all pages */}
+            <div className="fixed bottom-24 md:bottom-6 left-4 md:left-auto md:right-6 z-40">
+                <GlobalChat />
+            </div>
         </div >
     )
 }
