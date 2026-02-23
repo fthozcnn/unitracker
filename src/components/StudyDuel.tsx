@@ -198,8 +198,10 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
     const [selectedDuration, setSelectedDuration] = useState(25)
     const [activeDuel, setActiveDuel] = useState<Duel | null>(null)
     const [finishedDuel, setFinishedDuel] = useState<Duel | null>(null)
+    const [errorMsg, setErrorMsg] = useState('')
+    const [successMsg, setSuccessMsg] = useState('')
 
-    const { data: duels, isLoading } = useQuery({
+    const { data: duels, isLoading, error: duelsError } = useQuery({
         queryKey: ['my_duels', user?.id],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -212,10 +214,11 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                 .or(`challenger_id.eq.${user?.id},opponent_id.eq.${user?.id}`)
                 .order('created_at', { ascending: false })
                 .limit(20)
-            if (error) console.error(error)
+            if (error) throw error
             return (data || []) as Duel[]
         },
-        refetchInterval: 5000
+        refetchInterval: 5000,
+        retry: false
     })
 
     // Watch for incoming accepted duels
@@ -237,6 +240,8 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
 
     const sendDuelMutation = useMutation({
         mutationFn: async () => {
+            setErrorMsg('')
+            setSuccessMsg('')
             const { error } = await supabase.from('study_duels').insert({
                 challenger_id: user?.id,
                 opponent_id: selectedFriend,
@@ -247,7 +252,18 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
         },
         onSuccess: () => {
             setSelectedFriend(null)
+            setSuccessMsg('Meydan okuma gönderildi! Arkadaşın kabul etmesini bekle. ⚔️')
+            setTimeout(() => setSuccessMsg(''), 4000)
             queryClient.invalidateQueries({ queryKey: ['my_duels'] })
+        },
+        onError: (err: any) => {
+            const msg = err?.message || 'Bir hata oluştu.'
+            if (msg.includes('does not exist') || msg.includes('relation')) {
+                setErrorMsg('⚠️ Supabase tablosu bulunamadı. Lütfen supabase_study_duel.sql dosyasını Supabase SQL Editor\'da çalıştır.')
+            } else {
+                setErrorMsg(`Hata: ${msg}`)
+            }
+            setTimeout(() => setErrorMsg(''), 8000)
         }
     })
 
@@ -310,6 +326,25 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
 
     return (
         <div className="space-y-6">
+
+            {/* SQL not run warning */}
+            {duelsError && (
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm font-semibold">
+                    ⚠️ <strong>Kurulum gerekiyor:</strong> Supabase SQL Editor'da <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">supabase_study_duel.sql</code> dosyasını çalıştır.
+                </div>
+            )}
+
+            {/* Error / Success feedback */}
+            {errorMsg && (
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
+                    {errorMsg}
+                </div>
+            )}
+            {successMsg && (
+                <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-sm font-semibold">
+                    {successMsg}
+                </div>
+            )}
             {/* New Duel */}
             <Card className="p-5">
                 <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2 mb-4">
