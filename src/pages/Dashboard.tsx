@@ -13,6 +13,7 @@ import { calculateLevel, levelProgress, xpForLevel } from '../lib/xpSystem'
 import { checkExamReminders } from '../lib/pushNotifications'
 import OnboardingWizard from '../components/OnboardingWizard'
 import DailyQuests from '../components/DailyQuests'
+import WeeklySummaryCard from '../components/WeeklySummaryCard'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
@@ -270,6 +271,9 @@ export default function Dashboard() {
         <div className="space-y-6 md:space-y-8">
             {/* Onboarding Wizard */}
             <OnboardingWizard isOpen={showOnboarding} onClose={() => setShowOnboarding(false)} />
+
+            {/* Weekly Summary Card - only shows on Sundays */}
+            <WeeklySummaryCard />
 
             {/* Home Header & Quick Actions */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
