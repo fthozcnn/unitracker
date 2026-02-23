@@ -18,8 +18,9 @@ type Duel = {
     finished_at: string | null
     winner_id: string | null
     created_at: string
-    challenger?: { display_name: string | null; email: string }
-    opponent?: { display_name: string | null; email: string }
+    // enriched client-side
+    challenger_name?: string
+    opponent_name?: string
 }
 
 function formatTime(seconds: number) {
@@ -41,7 +42,7 @@ function ActiveDuel({ duel, onFinished }: { duel: Duel; onFinished: () => void }
     const channelRef = useRef<any>(null)
 
     const isChallenger = user?.id === duel.challenger_id
-    const opponent = isChallenger ? duel.opponent : duel.challenger
+    const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name
     const opponentId = isChallenger ? duel.opponent_id : duel.challenger_id
 
     // Local timer
@@ -148,9 +149,9 @@ function ActiveDuel({ duel, onFinished }: { duel: Duel; onFinished: () => void }
                 {/* Opponent */}
                 <div className="text-center space-y-2">
                     <div className="w-14 h-14 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-2xl font-black text-red-500">
-                        {(opponent?.display_name || opponent?.email)?.[0]?.toUpperCase()}
+                        {opponentName?.[0]?.toUpperCase()}
                     </div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{opponent?.display_name || opponent?.email?.split('@')[0]}</p>
+                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{opponentName || '...'}</p>
                     <p className="text-2xl font-black text-red-500">
                         {opponentElapsed > 0 ? formatTime(opponentElapsed) : '--:--'}
                     </p>
@@ -206,16 +207,26 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('study_duels')
-                .select(`
-                    *,
-                    challenger:challenger_id(display_name, email),
-                    opponent:opponent_id(display_name, email)
-                `)
+                .select('*')
                 .or(`challenger_id.eq.${user?.id},opponent_id.eq.${user?.id}`)
                 .order('created_at', { ascending: false })
                 .limit(20)
             if (error) throw error
-            return (data || []) as Duel[]
+
+            // Enrich with names from friends list
+            const friendMap: Record<string, string> = {}
+            friends.forEach((f: any) => {
+                if (f.friend?.id) {
+                    friendMap[f.friend.id] = f.friend.display_name || f.friend.email?.split('@')[0] || '?'
+                }
+            })
+            const myName = 'Sen'
+
+            return ((data || []) as Duel[]).map(d => ({
+                ...d,
+                challenger_name: d.challenger_id === user?.id ? myName : (friendMap[d.challenger_id] || 'Kullanıcı'),
+                opponent_name: d.opponent_id === user?.id ? myName : (friendMap[d.opponent_id] || 'Kullanıcı'),
+            }))
         },
         refetchInterval: 5000,
         retry: false
@@ -419,7 +430,7 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                                     <Swords className="h-4 w-4 text-red-500 shrink-0" />
                                     <div className="min-w-0">
                                         <p className="font-bold text-gray-900 dark:text-white text-sm truncate">
-                                            {d.challenger?.display_name || d.challenger?.email?.split('@')[0]}
+                                            {d.challenger_name}
                                         </p>
                                         <p className="text-xs text-gray-400">{d.duration_minutes} dakika</p>
                                     </div>
@@ -453,7 +464,7 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                             <Clock className="h-4 w-4 text-gray-400 animate-spin-slow" />
                             <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">
-                                    {d.opponent?.display_name || d.opponent?.email?.split('@')[0]} yanıt bekliyor…
+                                    {d.opponent_name} yanıt bekliyor…
                                 </p>
                                 <p className="text-xs text-gray-400">{d.duration_minutes} dk</p>
                             </div>
@@ -468,14 +479,14 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                     <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Düello Geçmişi</p>
                     {finishedDuels.slice(0, 5).map(d => {
                         const iWon = d.winner_id === user?.id
-                        const opponent = d.challenger_id === user?.id ? d.opponent : d.challenger
+                        const opponentName = d.challenger_id === user?.id ? d.opponent_name : d.challenger_name
                         return (
                             <Card key={d.id} className={clsx("p-4 flex items-center justify-between", iWon ? "border-l-4 border-amber-400" : "border-l-4 border-gray-300")}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-xl">{iWon ? '🏆' : '😤'}</span>
                                     <div className="min-w-0">
                                         <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                            {opponent?.display_name || opponent?.email?.split('@')[0]}
+                                            {opponentName}
                                         </p>
                                         <p className="text-xs text-gray-400">{d.duration_minutes} dk</p>
                                     </div>
