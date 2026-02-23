@@ -3,6 +3,7 @@ import StudyTimer from '../components/StudyTimer'
 import SyncPomodoro from '../components/SyncPomodoro'
 import ManualSessionModal from '../components/ManualSessionModal'
 import MusicPlayer from '../components/MusicPlayer'
+import GlobalChat from '../components/GlobalChat'
 import { Card, Button } from '../components/ui-base'
 import { Plus, Edit2, Trash2, Maximize2, Minimize2 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -179,7 +180,8 @@ export default function Study() {
                 </div>
             )}
 
-            <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50">
+            <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex flex-col md:flex-row items-end gap-3">
+                <GlobalChat />
                 <MusicPlayer />
             </div>
 
