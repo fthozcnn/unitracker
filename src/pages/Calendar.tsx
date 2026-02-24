@@ -8,7 +8,7 @@ import { tr } from 'date-fns/locale'
 import {
     ChevronLeft, ChevronRight, Plus,
     CalendarDays, ListChecks, CheckCircle2, Circle, Clock, Trash2,
-    FileDown, FileUp
+    FileDown, FileUp, UserPlus, Share2, Check, X, Inbox
 } from 'lucide-react'
 import { Button, Card } from '../components/ui-base'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -58,6 +58,17 @@ export default function CalendarPage() {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null)
 
+    // Share state
+    const [sharingEvent, setSharingEvent] = useState<Assignment | null>(null)
+    const [selectedFriendId, setSelectedFriendId] = useState('')
+    const [shareLoading, setShareLoading] = useState(false)
+    const [shareSuccess, setShareSuccess] = useState('')
+
+    // Accept state
+    const [acceptingShare, setAcceptingShare] = useState<any | null>(null)
+    const [acceptCourseId, setAcceptCourseId] = useState('')
+    const [acceptLoading, setAcceptLoading] = useState(false)
+
     const monthStart = startOfMonth(currentDate)
     const monthEnd = endOfMonth(monthStart)
     const startDate = startOfWeek(monthStart, { weekStartsOn: 1 })
@@ -90,6 +101,97 @@ export default function CalendarPage() {
             return (data || []) as Assignment[]
         }
     })
+
+    // Friends (for share picker)
+    const { data: friends = [] } = useQuery({
+        queryKey: ['friends_for_share'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('friendships')
+                .select('friend:friend_id (id, email, display_name)')
+                .eq('user_id', user?.id)
+                .eq('status', 'accepted')
+            return (data || []).map((f: any) => f.friend).filter(Boolean)
+        }
+    })
+
+    // My courses (for accept picker)
+    const { data: myCourses = [] } = useQuery({
+        queryKey: ['courses'],
+        queryFn: async () => {
+            const { data } = await supabase.from('courses').select('id, name').eq('user_id', user?.id)
+            return data || []
+        }
+    })
+
+    // Incoming pending shares
+    const { data: incomingShares = [] } = useQuery({
+        queryKey: ['incoming_shares', user?.id],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('event_shares')
+                .select('*, sender:sender_id (display_name, email)')
+                .eq('receiver_id', user?.id)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+            return data || []
+        },
+        refetchInterval: 15000,
+    })
+
+    // Send share
+    const sendShare = async (event: Assignment) => {
+        if (!selectedFriendId) return
+        setShareLoading(true)
+        try {
+            const { error } = await supabase.from('event_shares').insert({
+                sender_id: user?.id,
+                receiver_id: selectedFriendId,
+                title: event.title,
+                type: event.type,
+                due_date: event.due_date,
+            })
+            if (error) throw error
+            setShareSuccess('Etkinlik paylaşıldı! ✅')
+            setTimeout(() => { setSharingEvent(null); setShareSuccess(''); setSelectedFriendId('') }, 1500)
+        } catch (err: any) {
+            alert(err.message || 'Paylaşım hatası')
+        } finally {
+            setShareLoading(false)
+        }
+    }
+
+    // Accept share
+    const acceptShare = async () => {
+        if (!acceptingShare || !acceptCourseId) return
+        setAcceptLoading(true)
+        try {
+            const { error: insertErr } = await supabase.from('assignments').insert({
+                user_id: user?.id,
+                course_id: acceptCourseId,
+                title: acceptingShare.title,
+                type: acceptingShare.type,
+                due_date: acceptingShare.due_date,
+                is_completed: false,
+            })
+            if (insertErr) throw insertErr
+            await supabase.from('event_shares').update({ status: 'accepted' }).eq('id', acceptingShare.id)
+            queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
+            queryClient.invalidateQueries({ queryKey: ['assignments'] })
+            queryClient.invalidateQueries({ queryKey: ['incoming_shares'] })
+            setAcceptingShare(null)
+            setAcceptCourseId('')
+        } catch (err: any) {
+            alert(err.message || 'Kabul hatası')
+        } finally {
+            setAcceptLoading(false)
+        }
+    }
+
+    const declineShare = async (shareId: string) => {
+        await supabase.from('event_shares').update({ status: 'declined' }).eq('id', shareId)
+        queryClient.invalidateQueries({ queryKey: ['incoming_shares'] })
+    }
 
     const completeMutation = useMutation({
         mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
@@ -341,6 +443,94 @@ export default function CalendarPage() {
             {/* ── TAB 2: EVENTS ── */}
             {activeTab === 'events' && (
                 <div className="space-y-8">
+
+                    {/* Incoming Shares */}
+                    {incomingShares.length > 0 && (
+                        <div className="space-y-3">
+                            <h2 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                <Inbox className="h-5 w-5 text-indigo-500" />
+                                Gelen Paylaşımlar
+                                <span className="text-xs font-black px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full">
+                                    {incomingShares.length}
+                                </span>
+                            </h2>
+                            {incomingShares.map((share: any) => {
+                                const cfg = getTypeConfig(share.type)
+                                const senderName = share.sender?.display_name || share.sender?.email?.split('@')[0] || '?'
+                                return (
+                                    <Card key={share.id} className="p-4 border-l-4 border-indigo-500 space-y-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="font-bold text-gray-900 dark:text-white text-sm">
+                                                    <span className="mr-1">{cfg.emoji}</span>{share.title}
+                                                </p>
+                                                <p className="text-[10px] text-gray-400 mt-0.5">
+                                                    <span className="font-bold text-indigo-500">{senderName}</span> paylaştı &middot; {cfg.label} &middot; {format(new Date(share.due_date), 'd MMM yyyy', { locale: tr })}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => declineShare(share.id)}
+                                                className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all shrink-0"
+                                                title="Reddet"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                        <button
+                                            onClick={() => { setAcceptingShare(share); setAcceptCourseId('') }}
+                                            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors"
+                                        >
+                                            <Check className="h-4 w-4" />
+                                            Takvime Ekle
+                                        </button>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Accept Share Modal (inline) */}
+                    {acceptingShare && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+                            <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-black text-gray-900 dark:text-white">Etkinliği Takvime Ekle</h3>
+                                    <button onClick={() => setAcceptingShare(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-sm">
+                                    <p className="font-bold text-gray-900 dark:text-white">{getTypeConfig(acceptingShare.type).emoji} {acceptingShare.title}</p>
+                                    <p className="text-gray-400 text-xs mt-1">{format(new Date(acceptingShare.due_date), 'd MMMM yyyy HH:mm', { locale: tr })}</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Bu etkinliğin dersini seç</label>
+                                    <select
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        value={acceptCourseId}
+                                        onChange={e => setAcceptCourseId(e.target.value)}
+                                    >
+                                        <option value="">Ders seç…</option>
+                                        {(myCourses as any[]).map((c: any) => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setAcceptingShare(null)} className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                        İptal
+                                    </button>
+                                    <button
+                                        onClick={acceptShare}
+                                        disabled={!acceptCourseId || acceptLoading}
+                                        className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                                    >
+                                        {acceptLoading ? 'Ekleniyor…' : '✅ Ekle'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {EVENT_TYPES.map(typeConfig => {
                         const events = upcomingGroups[typeConfig.value] || []
                         const pending = events.filter(e => !e.is_completed)
@@ -387,7 +577,7 @@ export default function CalendarPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3 shrink-0">
+                                            <div className="flex items-center gap-2 shrink-0">
                                                 <DaysUntil date={event.due_date} />
                                                 {canComplete && (
                                                     <button
@@ -398,6 +588,13 @@ export default function CalendarPage() {
                                                         <Circle className="h-5 w-5" />
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={() => { setSharingEvent(event); setSelectedFriendId('') }}
+                                                    title="Arkadaşla Paylaş"
+                                                    className="p-2 rounded-xl text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all"
+                                                >
+                                                    <UserPlus className="h-4 w-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => { setEditingAssignment(event); setIsModalOpen(true) }}
                                                     title="Düzenle"
@@ -474,6 +671,61 @@ export default function CalendarPage() {
                 </div>
                 <p className="text-[10px] text-gray-400 mt-2">İçe aktarma için dışa aktarılan JSON formatı kullanılmalıdır. Ders isimleri eşleşmeli.</p>
             </div>
+
+            {/* Share Event Modal (inline) */}
+            {sharingEvent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                <Share2 className="h-5 w-5 text-indigo-500" />
+                                Etkinliği Paylaş
+                            </h3>
+                            <button onClick={() => { setSharingEvent(null); setShareSuccess('') }} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 text-sm">
+                            <p className="font-bold text-gray-900 dark:text-white">{getTypeConfig(sharingEvent.type).emoji} {sharingEvent.title}</p>
+                            <p className="text-gray-400 text-xs mt-1">{format(new Date(sharingEvent.due_date), 'd MMMM yyyy HH:mm', { locale: tr })}</p>
+                        </div>
+                        {shareSuccess ? (
+                            <p className="text-center text-green-600 font-bold text-sm py-2">{shareSuccess}</p>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Arkadaş seç</label>
+                                    <select
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        value={selectedFriendId}
+                                        onChange={e => setSelectedFriendId(e.target.value)}
+                                    >
+                                        <option value="">Arkadaş seç…</option>
+                                        {(friends as any[]).map((f: any) => (
+                                            <option key={f.id} value={f.id}>{f.display_name || f.email?.split('@')[0]}</option>
+                                        ))}
+                                    </select>
+                                    {friends.length === 0 && (
+                                        <p className="text-xs text-gray-400 mt-1">Henüz arkadaşın yok. Sosyal sayfasından arkadaş ekle!</p>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setSharingEvent(null)} className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                        İptal
+                                    </button>
+                                    <button
+                                        onClick={() => sendShare(sharingEvent)}
+                                        disabled={!selectedFriendId || shareLoading}
+                                        className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                                    >
+                                        {shareLoading ? 'Gönderiliyor…' : '📤 Gönder'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <AddAssignmentModal
                 isOpen={isModalOpen}
