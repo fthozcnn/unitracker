@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
-import { X, CalendarDays, Pencil } from 'lucide-react'
+import { X, CalendarDays, Pencil, Trash2 } from 'lucide-react'
 import { Button, Input } from './ui-base'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -12,7 +12,6 @@ type Assignment = {
     title: string
     type: string
     due_date: string
-    description?: string
 }
 
 type AddAssignmentModalProps = {
@@ -42,7 +41,6 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
         type: 'homework',
         dueDate: '',
         dueTime: '23:59',
-        description: '',
     })
 
     const { data: courses } = useQuery({
@@ -65,7 +63,6 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
                 type: editingAssignment.type,
                 dueDate: local.toISOString().split('T')[0],
                 dueTime: local.toISOString().split('T')[1]?.slice(0, 5) || '23:59',
-                description: editingAssignment.description || '',
             })
         } else if (!editingAssignment && defaultDate && isOpen) {
             const offset = defaultDate.getTimezoneOffset()
@@ -75,7 +72,7 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
     }, [editingAssignment, defaultDate, isOpen])
 
     const reset = () => {
-        setFormData({ courseId: '', title: '', type: 'homework', dueDate: '', dueTime: '23:59', description: '' })
+        setFormData({ courseId: '', title: '', type: 'homework', dueDate: '', dueTime: '23:59' })
         setErrorMsg('')
     }
 
@@ -93,7 +90,6 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
                 title: formData.title,
                 type: formData.type,
                 due_date: dueDateTime.toISOString(),
-                description: formData.description || null,
             }
 
             if (editingAssignment) {
@@ -115,6 +111,15 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
     }
 
     const isEditing = !!editingAssignment
+
+    const handleDelete = async () => {
+        if (!editingAssignment) return
+        if (!window.confirm(`"${editingAssignment.title}" silinsin mi?`)) return
+        await supabase.from('assignments').delete().eq('id', editingAssignment.id)
+        await queryClient.invalidateQueries({ queryKey: ['assignments'] })
+        await queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
+        handleClose()
+    }
 
     return (
         <Transition appear show={isOpen} as={Fragment}>
@@ -147,8 +152,8 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
                                                     type="button"
                                                     onClick={() => setFormData(p => ({ ...p, type: t.value }))}
                                                     className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${formData.type === t.value
-                                                            ? 'bg-blue-600 text-white shadow-sm'
-                                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                        ? 'bg-blue-600 text-white shadow-sm'
+                                                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                                                         }`}
                                                 >
                                                     <span>{t.emoji}</span>{t.label}
@@ -188,25 +193,27 @@ export default function AddAssignmentModal({ isOpen, onClose, defaultDate, editi
                                         <Input label="Saat" type="time" value={formData.dueTime} onChange={e => setFormData(p => ({ ...p, dueTime: e.target.value }))} required />
                                     </div>
 
-                                    {/* Description (optional) */}
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Açıklama <span className="font-normal normal-case">(isteğe bağlı)</span></label>
-                                        <textarea
-                                            rows={2}
-                                            className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                            placeholder="Ek notlar..."
-                                            value={formData.description}
-                                            onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
-                                        />
-                                    </div>
-
                                     {errorMsg && <p className="text-sm text-red-500 font-medium">{errorMsg}</p>}
 
-                                    <div className="flex justify-end gap-2 pt-1">
-                                        <Button type="button" variant="secondary" onClick={handleClose}>İptal</Button>
-                                        <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                                            {loading ? 'Kaydediliyor…' : isEditing ? 'Güncelle' : 'Kaydet'}
-                                        </Button>
+                                    <div className="flex justify-between items-center pt-1">
+                                        <div>
+                                            {isEditing && (
+                                                <button
+                                                    type="button"
+                                                    onClick={handleDelete}
+                                                    className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-xl transition-colors"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Sil
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button type="button" variant="secondary" onClick={handleClose}>İptal</Button>
+                                            <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
+                                                {loading ? 'Kaydediliyor…' : isEditing ? 'Güncelle' : 'Kaydet'}
+                                            </Button>
+                                        </div>
                                     </div>
                                 </form>
                             </Dialog.Panel>

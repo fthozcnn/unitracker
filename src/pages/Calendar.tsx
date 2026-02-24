@@ -6,8 +6,9 @@ import {
 } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import {
-    ChevronLeft, ChevronRight, Plus, Download,
-    CalendarDays, ListChecks, CheckCircle2, Circle, Clock
+    ChevronLeft, ChevronRight, Plus,
+    CalendarDays, ListChecks, CheckCircle2, Circle, Clock, Trash2,
+    FileDown, FileUp
 } from 'lucide-react'
 import { Button, Card } from '../components/ui-base'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -101,6 +102,17 @@ export default function CalendarPage() {
         }
     })
 
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase.from('assignments').delete().eq('id', id)
+            if (error) throw error
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
+            queryClient.invalidateQueries({ queryKey: ['assignments'] })
+        }
+    })
+
     // Open new event modal on empty day click
     const handleDayClick = (day: Date) => {
         setEditingAssignment(null)
@@ -134,13 +146,14 @@ export default function CalendarPage() {
 
     // Export calendar to JSON
     const handleExport = () => {
-        if (!assignments.length) { alert('İndirilecek takvim verisi bulunamadı.'); return }
+        const allEvts = upcomingEvents
+        if (!allEvts.length) { alert('Dışa aktarılacak etkinlik bulunamadı.'); return }
         const exportData = {
             title: 'Akademik Takvim',
             exported_at: new Date().toISOString(),
-            assignments: assignments.map((a) => ({
+            assignments: allEvts.map(a => ({
                 title: a.title,
-                type: getTypeConfig(a.type).label,
+                type: a.type,
                 course: a.courses?.name || '',
                 due_date: a.due_date,
                 is_completed: a.is_completed,
@@ -150,34 +163,69 @@ export default function CalendarPage() {
         const url = URL.createObjectURL(blob)
         const el = document.createElement('a')
         el.href = url
-        el.download = `takvim-${format(currentDate, 'yyyy-MM')}.json`
+        el.download = `takvim-${format(new Date(), 'yyyy-MM-dd')}.json`
         document.body.appendChild(el)
         el.click()
         document.body.removeChild(el)
         URL.revokeObjectURL(url)
     }
 
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        const reader = new FileReader()
+        reader.onload = async (ev) => {
+            try {
+                const json = JSON.parse(ev.target?.result as string)
+                if (!json.assignments || !Array.isArray(json.assignments)) {
+                    alert('Dosya formatı hatalı. Lütfen daha önce dışa aktardığınız bir JSON dosyası kullanın.')
+                    return
+                }
+                // Get courses to match names
+                const { data: courses } = await supabase.from('courses').select('id, name').eq('user_id', user?.id)
+                const courseMap: Record<string, string> = {}
+                courses?.forEach((c: any) => { courseMap[c.name] = c.id })
+
+                let imported = 0
+                for (const a of json.assignments) {
+                    const courseId = courseMap[a.course]
+                    if (!courseId || !a.title || !a.due_date) continue
+                    await supabase.from('assignments').insert({
+                        user_id: user?.id,
+                        course_id: courseId,
+                        title: a.title,
+                        type: a.type || 'other',
+                        due_date: a.due_date,
+                        is_completed: a.is_completed || false,
+                    })
+                    imported++
+                }
+                await queryClient.invalidateQueries({ queryKey: ['assignments'] })
+                await queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
+                alert(`${imported} etkinlik başarıyla içe aktarıldı!`)
+            } catch {
+                alert('Dosya okunamadı. Geçerli bir JSON dosyası seçin.')
+            }
+        }
+        reader.readAsText(file)
+        e.target.value = ''
+    }
+
     return (
         <div className="space-y-6 pb-10">
-            {/* Header */}
+            {/* Header — clean, no export button */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">Takvim</h1>
                     <p className="text-sm font-medium text-gray-500 mt-0.5">Etkinlikler, sınavlar ve önemli tarihler.</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="secondary" onClick={handleExport} className="text-sm">
-                        <Download className="h-4 w-4 mr-1.5" />
-                        İndir
-                    </Button>
-                    <Button
-                        onClick={() => { setEditingAssignment(null); setSelectedDate(new Date()); setIsModalOpen(true) }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
-                    >
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Etkinlik Ekle
-                    </Button>
-                </div>
+                <Button
+                    onClick={() => { setEditingAssignment(null); setSelectedDate(new Date()); setIsModalOpen(true) }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
+                >
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    Etkinlik Ekle
+                </Button>
             </div>
 
             {/* Tab Bar */}
@@ -357,6 +405,17 @@ export default function CalendarPage() {
                                                 >
                                                     <Clock className="h-4 w-4" />
                                                 </button>
+                                                <button
+                                                    onClick={() => {
+                                                        if (window.confirm(`"${event.title}" silinsin mi?`)) {
+                                                            deleteMutation.mutate(event.id)
+                                                        }
+                                                    }}
+                                                    title="Sil"
+                                                    className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
                                             </div>
                                         </Card>
                                     ))}
@@ -396,6 +455,25 @@ export default function CalendarPage() {
                     )}
                 </div>
             )}
+
+            {/* ── EXPORT / IMPORT SECTION ── */}
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-6">
+                <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3">Veri Aktar</h3>
+                <div className="flex flex-wrap gap-3">
+                    <Button variant="secondary" onClick={handleExport} className="text-sm">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Dışa Aktar (.json)
+                    </Button>
+                    <label className="cursor-pointer">
+                        <input type="file" accept=".json" className="hidden" onChange={handleImport} />
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            <FileUp className="h-4 w-4" />
+                            İçe Aktar (.json)
+                        </span>
+                    </label>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">İçe aktarma için dışa aktarılan JSON formatı kullanılmalıdır. Ders isimleri eşleşmeli.</p>
+            </div>
 
             <AddAssignmentModal
                 isOpen={isModalOpen}
