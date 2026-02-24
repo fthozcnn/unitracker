@@ -898,7 +898,7 @@ export default function Social() {
 
             {activeTab === 'duels' && (
                 <div className="mt-6 max-w-2xl">
-                    <StudyDuel friends={friends || []} />
+                    <StudyDuel friends={(friends || []).map((f: any) => f.friend).filter(Boolean)} />
                 </div>
             )}
         </div>
