@@ -41,17 +41,22 @@ export default function Dashboard() {
     const { data: stats } = useQuery({
         queryKey: ['dashboard_stats'],
         queryFn: async () => {
-            const todayISO = new Date().toISOString().split('T')[0]
+            // Use local midnight for "today" (important for UTC+3 and other timezones)
+            const todayLocal = new Date()
+            todayLocal.setHours(0, 0, 0, 0)
+            const todayISO = todayLocal.toISOString()
 
             const [coursesRes, sessionsRes, pendingAssignmentsRes, todaySessionsRes, todayAssignmentsRes] = await Promise.all([
                 supabase.from('courses').select('id', { count: 'exact' }).eq('user_id', user?.id),
                 supabase.from('study_sessions').select('duration', { count: 'exact' }).eq('user_id', user?.id),
                 supabase.from('assignments').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('is_completed', false),
-                supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', `${todayISO}T00:00:00Z`),
-                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('updated_at', `${todayISO}T00:00:00Z`)
+                supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', todayISO),
+                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('updated_at', todayISO)
             ])
 
-            const totalMinutesToday = todaySessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0
+            // duration is stored in SECONDS — convert to minutes for the daily goal (target: 120 min)
+            const totalSecondsToday = todaySessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0
+            const totalMinutesToday = Math.floor(totalSecondsToday / 60)
 
             return {
                 courses: coursesRes.count || 0,
