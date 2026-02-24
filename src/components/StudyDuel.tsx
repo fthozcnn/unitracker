@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { Card, Button } from './ui-base'
-import { Swords, Clock, X, Check, Timer } from 'lucide-react'
+import { Card, Button, Input } from './ui-base'
+import { Swords, Clock, X, Check, Coffee, Flag, Zap, Wifi, WifiOff, Send } from 'lucide-react'
 import clsx from 'clsx'
-
-const DURATION_OPTIONS = [15, 25, 45]
+import { triggerSuccessConfetti } from '../lib/confetti'
+import { addXP, XP_REWARDS } from '../lib/xpSystem'
 
 type Duel = {
     id: string
@@ -18,405 +18,623 @@ type Duel = {
     finished_at: string | null
     winner_id: string | null
     created_at: string
-    // enriched client-side
     challenger_name?: string
     opponent_name?: string
 }
 
 function formatTime(seconds: number) {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
     const s = (seconds % 60).toString().padStart(2, '0')
-    return `${m}:${s}`
+    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`
 }
 
-// --- Active Duel Screen ---
+const REACTIONS = ['👊', '💪', '😤', '🔥', '😂', '😴']
+
+// ─── Game Over Screen ───────────────────────────────────────────────────────
+function GameOverScreen({ iWon, opponentName, myElapsed, reason, onClose }: {
+    iWon: boolean; opponentName?: string; myElapsed: number; reason: string; onClose: () => void
+}) {
+    const reasonLabels: Record<string, string> = {
+        surrender: 'pes etti',
+        disconnect: '60 sn bağlantısı kesildi',
+        opponent_surrender: 'sen pes ettin',
+    }
+    return (
+        <Card className="p-8 text-center space-y-5 border-2 border-opacity-50" style={{ borderColor: iWon ? '#f59e0b' : '#ef4444' }}>
+            <div className="text-6xl">{iWon ? '🏆' : '😤'}</div>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white">
+                {iWon ? 'Zafer Senindir!' : 'Düelloyu Kaybettin'}
+            </h2>
+            <p className="text-sm text-gray-500">
+                {iWon
+                    ? `${opponentName} ${reasonLabels[reason] || 'durdu'} — sen kazandın!`
+                    : `${opponentName} daha uzun dayanıp kazandı.`}
+            </p>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 inline-block mx-auto">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Toplam Çalışma</p>
+                <p className="text-3xl font-black text-gray-900 dark:text-white font-mono">{formatTime(myElapsed)}</p>
+            </div>
+            {iWon && <p className="text-green-600 font-black text-sm">+75 XP kazandın! 🎉</p>}
+            <Button onClick={onClose} className="w-full">Kapat</Button>
+        </Card>
+    )
+}
+
+// ─── Active Duel ────────────────────────────────────────────────────────────
 function ActiveDuel({ duel, onFinished }: { duel: Duel; onFinished: () => void }) {
     const { user } = useAuth()
     const queryClient = useQueryClient()
-    const totalSeconds = duel.duration_minutes * 60
-    const startedAt = duel.started_at ? new Date(duel.started_at).getTime() : Date.now()
-
-    const [myElapsed, setMyElapsed] = useState(0)
-    const [opponentElapsed, setOpponentElapsed] = useState(0)
-    const [finished, setFinished] = useState(false)
-    const channelRef = useRef<any>(null)
 
     const isChallenger = user?.id === duel.challenger_id
     const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name
     const opponentId = isChallenger ? duel.opponent_id : duel.challenger_id
 
-    // Local timer
+    // Stopwatch
+    const [myElapsed, setMyElapsed] = useState(0)
+    const myElapsedRef = useRef(0)
+    const [opponentElapsed, setOpponentElapsed] = useState(0)
+
+    // Break state
+    const isOnBreakRef = useRef(false)
+    const [isOnBreak, setIsOnBreak] = useState(false)
+    const [breakEndsAt, setBreakEndsAt] = useState<number | null>(null)
+    const [breakTimeLeft, setBreakTimeLeft] = useState(0)
+    const [incomingBreak, setIncomingBreak] = useState<{ fromName: string; minutes: number } | null>(null)
+    const [showBreakInput, setShowBreakInput] = useState(false)
+    const [breakMinutes, setBreakMinutes] = useState('5')
+    const [breakStatus, setBreakStatus] = useState<'idle' | 'waiting' | 'rejected'>('idle')
+
+    // Opponent connectivity
+    const [opponentAlive, setOpponentAlive] = useState(true)
+    const [opponentOnBreak, setOpponentOnBreak] = useState(false)
+    const lastHeartbeatRef = useRef(Date.now())
+
+    // Reactions
+    const [floatingReactions, setFloatingReactions] = useState<{ id: number; emoji: string; fromMe: boolean }[]>([])
+    const reactionIdRef = useRef(0)
+
+    // Game over
+    const [gameOver, setGameOver] = useState<{ winnerId: string; reason: string } | null>(null)
+
+    const channelRef = useRef<any>(null)
+
+    // ── My timer ────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (finished) return
+        if (gameOver) return
         const interval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startedAt) / 1000)
-            setMyElapsed(Math.min(elapsed, totalSeconds))
-            if (elapsed >= totalSeconds) {
-                setFinished(true)
-                clearInterval(interval)
+            if (!isOnBreakRef.current) {
+                setMyElapsed(prev => {
+                    myElapsedRef.current = prev + 1
+                    return prev + 1
+                })
             }
         }, 1000)
         return () => clearInterval(interval)
-    }, [startedAt, totalSeconds, finished])
+    }, [gameOver])
 
-    // Broadcast my elapsed + receive opponent elapsed via Supabase Realtime
+    // ── Break countdown ──────────────────────────────────────────────────────
     useEffect(() => {
-        const channel = supabase.channel(`duel_${duel.id}`)
+        if (!breakEndsAt) return
+        const interval = setInterval(() => {
+            const left = Math.max(0, Math.floor((breakEndsAt - Date.now()) / 1000))
+            setBreakTimeLeft(left)
+            if (left === 0) {
+                setIsOnBreak(false)
+                isOnBreakRef.current = false
+                setBreakEndsAt(null)
+            }
+        }, 500)
+        return () => clearInterval(interval)
+    }, [breakEndsAt])
+
+    // ── Heartbeat sent every 5s ──────────────────────────────────────────────
+    useEffect(() => {
+        if (gameOver) return
+        const interval = setInterval(() => {
+            channelRef.current?.send({
+                type: 'broadcast',
+                event: 'heartbeat',
+                payload: { user_id: user?.id, elapsed: myElapsedRef.current, on_break: isOnBreakRef.current }
+            })
+        }, 5000)
+        return () => clearInterval(interval)
+    }, [gameOver, user?.id])
+
+    // ── Opponent disconnect watchdog ─────────────────────────────────────────
+    useEffect(() => {
+        if (gameOver) return
+        const interval = setInterval(() => {
+            const gap = Date.now() - lastHeartbeatRef.current
+            if (gap > 30000) setOpponentAlive(false)
+            if (gap > 60000 && !gameOver) {
+                handleGameOver(user!.id, 'disconnect')
+            }
+        }, 5000)
+        return () => clearInterval(interval)
+    }, [gameOver])
+
+    // ── Realtime channel ─────────────────────────────────────────────────────
+    useEffect(() => {
+        const channel = supabase.channel(`duel_v2_${duel.id}`)
         channelRef.current = channel
 
         channel
-            .on('broadcast', { event: 'tick' }, (payload: any) => {
-                if (payload.payload?.user_id !== user?.id) {
-                    setOpponentElapsed(payload.payload?.elapsed ?? 0)
+            .on('broadcast', { event: 'heartbeat' }, ({ payload }: any) => {
+                if (payload.user_id === user?.id) return
+                setOpponentElapsed(payload.elapsed ?? 0)
+                setOpponentOnBreak(payload.on_break ?? false)
+                setOpponentAlive(true)
+                lastHeartbeatRef.current = Date.now()
+            })
+            .on('broadcast', { event: 'break_request' }, ({ payload }: any) => {
+                if (payload.from_user_id === user?.id) return
+                setIncomingBreak({ fromName: payload.from_name, minutes: payload.minutes })
+            })
+            .on('broadcast', { event: 'break_approved' }, ({ payload }: any) => {
+                const until = new Date(payload.break_until).getTime()
+                setIsOnBreak(true)
+                isOnBreakRef.current = true
+                setBreakEndsAt(until)
+                setIncomingBreak(null)
+                setBreakStatus('idle')
+            })
+            .on('broadcast', { event: 'break_rejected' }, () => {
+                setIncomingBreak(null)
+                setBreakStatus('rejected')
+                setTimeout(() => setBreakStatus('idle'), 3000)
+            })
+            .on('broadcast', { event: 'surrender' }, ({ payload }: any) => {
+                if (payload.user_id !== user?.id) {
+                    handleGameOver(user!.id, 'surrender')
                 }
             })
+            .on('broadcast', { event: 'reaction' }, ({ payload }: any) => {
+                if (payload.user_id === user?.id) return
+                pushReaction(payload.emoji, false)
+            })
             .subscribe()
+
+        // Send first heartbeat immediately
+        setTimeout(() => {
+            channel.send({ type: 'broadcast', event: 'heartbeat', payload: { user_id: user?.id, elapsed: 0, on_break: false } })
+        }, 1000)
 
         return () => { supabase.removeChannel(channel) }
     }, [duel.id, user?.id])
 
-    // Broadcast my timer every second
-    useEffect(() => {
-        if (!channelRef.current || finished) return
-        const interval = setInterval(() => {
-            channelRef.current?.send({
-                type: 'broadcast',
-                event: 'tick',
-                payload: { user_id: user?.id, elapsed: myElapsed }
-            })
-        }, 1000)
-        return () => clearInterval(interval)
-    }, [myElapsed, user?.id, finished])
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    const handleGameOver = async (winnerId: string, reason: string) => {
+        if (gameOver) return // prevent double-fire
+        setGameOver({ winnerId, reason })
+        if (winnerId === user?.id) triggerSuccessConfetti()
 
-    // Finalize duel when time is up
-    const finalizeMutation = useMutation({
-        mutationFn: async () => {
-            const winnerId = myElapsed >= opponentElapsed ? user?.id : opponentId
-            await supabase.from('study_duels').update({
-                status: 'finished',
-                finished_at: new Date().toISOString(),
-                winner_id: winnerId
-            }).eq('id', duel.id)
-            // Award XP
-            await supabase.rpc('award_duel_xp', { winner_user_id: winnerId, xp_amount: 50 })
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['my_duels'] })
-            onFinished()
+        await supabase.from('study_duels').update({
+            status: 'finished',
+            finished_at: new Date().toISOString(),
+            winner_id: winnerId,
+            loser_stopped_at: reason !== 'disconnect' ? new Date().toISOString() : null,
+        }).eq('id', duel.id)
+
+        if (winnerId === user?.id) {
+            await supabase.rpc('award_duel_xp', { winner_user_id: winnerId, xp_amount: 75 })
         }
-    })
+        queryClient.invalidateQueries({ queryKey: ['my_duels'] })
+    }
 
-    useEffect(() => {
-        if (finished && !finalizeMutation.isPending && !finalizeMutation.isSuccess) {
-            finalizeMutation.mutate()
-        }
-    }, [finished])
+    const handleSurrender = () => {
+        if (!window.confirm('Gerçekten pes etmek istiyor musun? Rakibin kazanacak! 🏳')) return
+        channelRef.current?.send({ type: 'broadcast', event: 'surrender', payload: { user_id: user?.id } })
+        handleGameOver(opponentId, 'opponent_surrender')
+    }
 
-    const myProgress = (myElapsed / totalSeconds) * 100
-    const oppProgress = (opponentElapsed / totalSeconds) * 100
-    const remaining = Math.max(0, totalSeconds - myElapsed)
+    const sendBreakRequest = () => {
+        const mins = Math.max(1, Math.min(60, parseInt(breakMinutes) || 5))
+        channelRef.current?.send({
+            type: 'broadcast', event: 'break_request',
+            payload: { from_user_id: user?.id, from_name: user?.email?.split('@')[0], minutes: mins }
+        })
+        setShowBreakInput(false)
+        setBreakStatus('waiting')
+    }
 
+    const approveBreak = () => {
+        const breakUntil = new Date(Date.now() + parseInt(breakMinutes || '5') * 60000)
+        // Use the requested minutes from incomingBreak
+        const until = new Date(Date.now() + (incomingBreak?.minutes || 5) * 60000)
+        channelRef.current?.send({
+            type: 'broadcast', event: 'break_approved',
+            payload: { break_until: until.toISOString() }
+        })
+        setIsOnBreak(true)
+        isOnBreakRef.current = true
+        setBreakEndsAt(until.getTime())
+        setIncomingBreak(null)
+    }
+
+    const rejectBreak = () => {
+        channelRef.current?.send({ type: 'broadcast', event: 'break_rejected', payload: {} })
+        setIncomingBreak(null)
+    }
+
+    const pushReaction = (emoji: string, fromMe: boolean) => {
+        const id = ++reactionIdRef.current
+        setFloatingReactions(prev => [...prev, { id, emoji, fromMe }])
+        setTimeout(() => setFloatingReactions(prev => prev.filter(r => r.id !== id)), 2500)
+    }
+
+    const sendReaction = (emoji: string) => {
+        channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { user_id: user?.id, emoji } })
+        pushReaction(emoji, true)
+    }
+
+    // ── Game over screen ─────────────────────────────────────────────────────
+    if (gameOver) {
+        return (
+            <GameOverScreen
+                iWon={gameOver.winnerId === user?.id}
+                opponentName={opponentName}
+                myElapsed={myElapsed}
+                reason={gameOver.reason}
+                onClose={onFinished}
+            />
+        )
+    }
+
+    // ── Active duel UI ───────────────────────────────────────────────────────
     return (
-        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
-                <h3 className="font-black text-lg text-gray-900 dark:text-white flex items-center gap-2">
-                    <Swords className="h-5 w-5 text-red-500" />
-                    Aktif Düello
-                </h3>
-                <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-xl">
-                    <Timer className="h-4 w-4 animate-pulse" />
-                    <span className="font-black tabular-nums">{formatTime(remaining)}</span>
-                </div>
+        <Card className="p-5 space-y-5 relative border-2 border-indigo-100 dark:border-indigo-900/30 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-center gap-3">
+                <Swords className="h-5 w-5 text-indigo-500" />
+                <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+                    Düello Devam Ediyor
+                </span>
             </div>
 
-            {/* VS Banner */}
-            <div className="grid grid-cols-3 gap-3 items-center">
-                {/* Me */}
-                <div className="text-center space-y-2">
-                    <div className="w-14 h-14 mx-auto rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-2xl font-black text-blue-600">
-                        {(user?.email)?.[0]?.toUpperCase()}
-                    </div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">Sen</p>
-                    <p className="text-2xl font-black text-blue-600">{formatTime(myElapsed)}</p>
+            {/* Break Banner */}
+            {isOnBreak && breakEndsAt && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-3 text-center animate-pulse">
+                    <p className="text-amber-700 dark:text-amber-400 font-black text-sm flex items-center justify-center gap-2">
+                        <Coffee className="h-4 w-4" />
+                        ORTAK MOLA — <span className="font-mono text-base">{formatTime(breakTimeLeft)}</span> kaldı
+                    </p>
                 </div>
+            )}
 
-                {/* VS */}
-                <div className="flex flex-col items-center gap-1">
-                    <Swords className="h-8 w-8 text-gray-400" />
-                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest">vs</span>
+            {/* Timers */}
+            <div className="grid grid-cols-2 gap-3">
+                {/* Me */}
+                <div className={clsx(
+                    'flex flex-col items-center p-4 rounded-2xl space-y-1 transition-all',
+                    isOnBreak ? 'bg-amber-50 dark:bg-amber-900/10' : 'bg-green-50 dark:bg-green-900/10'
+                )}>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Sen</span>
+                    <p className={clsx('text-3xl font-black font-mono tracking-tight', isOnBreak ? 'text-amber-600' : 'text-green-600')}>
+                        {formatTime(myElapsed)}
+                    </p>
+                    <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full', isOnBreak
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-green-100 dark:bg-green-900/30 text-green-600')}>
+                        {isOnBreak ? '☕ Mola' : '🟢 Aktif'}
+                    </span>
                 </div>
 
                 {/* Opponent */}
-                <div className="text-center space-y-2">
-                    <div className="w-14 h-14 mx-auto rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-2xl font-black text-red-500">
-                        {opponentName?.[0]?.toUpperCase()}
-                    </div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{opponentName || '...'}</p>
-                    <p className="text-2xl font-black text-red-500">
+                <div className={clsx(
+                    'flex flex-col items-center p-4 rounded-2xl space-y-1 transition-all',
+                    !opponentAlive ? 'bg-red-50 dark:bg-red-900/10'
+                        : opponentOnBreak ? 'bg-amber-50 dark:bg-amber-900/10'
+                            : 'bg-blue-50 dark:bg-blue-900/10'
+                )}>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest truncate max-w-full">{opponentName}</span>
+                    <p className={clsx('text-3xl font-black font-mono tracking-tight',
+                        !opponentAlive ? 'text-red-400' : opponentOnBreak ? 'text-amber-600' : 'text-blue-600')}>
                         {opponentElapsed > 0 ? formatTime(opponentElapsed) : '--:--'}
                     </p>
+                    <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded-full',
+                        !opponentAlive ? 'bg-red-100 dark:bg-red-900/30 text-red-500'
+                            : opponentOnBreak ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600')}>
+                        {!opponentAlive
+                            ? <span className="flex items-center gap-1"><WifiOff className="h-3 w-3" />Bağlantı yok</span>
+                            : opponentOnBreak ? '☕ Mola' : <span className="flex items-center gap-1"><Wifi className="h-3 w-3" />Aktif</span>}
+                    </span>
                 </div>
             </div>
 
-            {/* Progress Bars */}
-            <div className="space-y-3">
-                <div>
-                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                        <span>Senin ilerleme</span>
-                        <span>{Math.round(myProgress)}%</span>
-                    </div>
-                    <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-blue-500 rounded-full transition-all duration-1000"
-                            style={{ width: `${myProgress}%` }}
-                        />
-                    </div>
+            {/* Floating reactions */}
+            {floatingReactions.length > 0 && (
+                <div className="flex justify-center gap-3 h-8 relative">
+                    {floatingReactions.map(r => (
+                        <span
+                            key={r.id}
+                            className={clsx(
+                                'text-2xl animate-bounce absolute',
+                                r.fromMe ? 'left-1/4' : 'right-1/4'
+                            )}
+                        >
+                            {r.emoji}
+                        </span>
+                    ))}
                 </div>
-                <div>
-                    <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                        <span>Rakip ilerleme</span>
-                        <span>{opponentElapsed > 0 ? `${Math.round(oppProgress)}%` : 'Bekliyor…'}</span>
-                    </div>
-                    <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-red-500 rounded-full transition-all duration-1000"
-                            style={{ width: `${oppProgress}%` }}
-                        />
-                    </div>
-                </div>
+            )}
+
+            {/* Emoji reactions */}
+            <div className="flex justify-center gap-2">
+                {REACTIONS.map(emoji => (
+                    <button
+                        key={emoji}
+                        onClick={() => sendReaction(emoji)}
+                        className="text-xl hover:scale-125 transition-transform active:scale-95 p-1"
+                        title="Reaksiyon gönder"
+                    >
+                        {emoji}
+                    </button>
+                ))}
             </div>
 
-            <p className="text-center text-xs text-gray-400 font-medium">Süre dolunca kazanana otomatik +50 XP! 🏆</p>
-        </div>
+            {/* Incoming break request */}
+            {incomingBreak && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-2xl p-4 space-y-3">
+                    <p className="text-sm font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                        <Coffee className="h-4 w-4" />
+                        {incomingBreak.fromName} <span className="font-black">{incomingBreak.minutes} dakika</span> mola istiyor
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={approveBreak}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-green-500 text-white text-sm font-bold hover:bg-green-600 transition-colors"
+                        >
+                            <Check className="h-4 w-4" /> Onayla
+                        </button>
+                        <button
+                            onClick={rejectBreak}
+                            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition-colors"
+                        >
+                            <X className="h-4 w-4" /> Reddet
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Break request status */}
+            {breakStatus === 'waiting' && !incomingBreak && (
+                <div className="text-center py-2 text-sm font-bold text-amber-600 animate-pulse">
+                    ☕ Mola isteği gönderildi, bekleniyor…
+                </div>
+            )}
+            {breakStatus === 'rejected' && (
+                <div className="text-center py-2 text-sm font-bold text-red-500">
+                    ❌ Mola isteği reddedildi!
+                </div>
+            )}
+
+            {/* Break input */}
+            {showBreakInput && (
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 space-y-3">
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-wide">Kaç dakika mola?</p>
+                    <div className="flex gap-2">
+                        {[5, 10, 15].map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setBreakMinutes(String(m))}
+                                className={clsx('flex-1 py-2 rounded-xl text-sm font-bold transition-all',
+                                    breakMinutes === String(m)
+                                        ? 'bg-amber-500 text-white'
+                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300')}
+                            >
+                                {m} dk
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex gap-2">
+                        <Input
+                            type="number"
+                            value={breakMinutes}
+                            onChange={e => setBreakMinutes(e.target.value)}
+                            className="flex-1 h-9 text-sm"
+                            placeholder="Özel dk"
+                            min={1}
+                            max={60}
+                        />
+                        <button
+                            onClick={sendBreakRequest}
+                            className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-colors flex items-center gap-1.5"
+                        >
+                            <Send className="h-3.5 w-3.5" /> Gönder
+                        </button>
+                        <button
+                            onClick={() => setShowBreakInput(false)}
+                            className="p-2 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        >
+                            <X className="h-4 w-4 text-gray-500" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Action buttons */}
+            {!showBreakInput && !incomingBreak && (
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                        onClick={() => { setShowBreakInput(true); setBreakStatus('idle') }}
+                        disabled={isOnBreak || breakStatus === 'waiting'}
+                        className={clsx(
+                            'flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold transition-all',
+                            isOnBreak || breakStatus === 'waiting'
+                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                                : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                        )}
+                    >
+                        <Coffee className="h-4 w-4" />
+                        Mola İste
+                    </button>
+                    <button
+                        onClick={handleSurrender}
+                        className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/40 transition-all"
+                    >
+                        <Flag className="h-4 w-4" />
+                        Pes Et
+                    </button>
+                </div>
+            )}
+
+            <p className="text-[10px] text-center text-gray-400 font-medium">
+                ⚔ Kim önce durursa kaybeder — 60 sn bağlantı kesilirse otomatik yenilgi
+            </p>
+        </Card>
     )
 }
 
-// --- Main StudyDuel Component ---
-export default function StudyDuel({ friends }: { friends: any[] }) {
-    const { user } = useAuth()
+// ─── Main StudyDuel Component ────────────────────────────────────────────────
+interface StudyDuelProps {
+    friends: { id: string; display_name?: string; email?: string }[]
+}
+
+export default function StudyDuel({ friends }: StudyDuelProps) {
+    const { user, profile } = useAuth()
     const queryClient = useQueryClient()
-    const [selectedFriend, setSelectedFriend] = useState<string | null>(null)
-    const [selectedDuration, setSelectedDuration] = useState(25)
     const [activeDuel, setActiveDuel] = useState<Duel | null>(null)
-    const [finishedDuel, setFinishedDuel] = useState<Duel | null>(null)
+    const [selectedFriend, setSelectedFriend] = useState('')
     const [errorMsg, setErrorMsg] = useState('')
     const [successMsg, setSuccessMsg] = useState('')
 
-    const { data: duels, isLoading, error: duelsError } = useQuery({
-        queryKey: ['my_duels', user?.id],
+    // Enrich a duel with display names from friends
+    const enrichDuel = (d: any): Duel => {
+        const myName = profile?.display_name || user?.email?.split('@')[0] || 'Sen'
+        const findName = (uid: string) => {
+            if (uid === user?.id) return myName
+            const f = friends.find(fr => fr.id === uid)
+            return f?.display_name || f?.email?.split('@')[0] || uid.slice(0, 6)
+        }
+        return {
+            ...d,
+            challenger_name: findName(d.challenger_id),
+            opponent_name: findName(d.opponent_id),
+        }
+    }
+
+    // Fetch duels
+    const { data: duels = [], error: duelsError } = useQuery<Duel[]>({
+        queryKey: ['my_duels'],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('study_duels')
-                .select('*')
+                .select('id,challenger_id,opponent_id,status,duration_minutes,started_at,finished_at,winner_id,created_at')
                 .or(`challenger_id.eq.${user?.id},opponent_id.eq.${user?.id}`)
                 .order('created_at', { ascending: false })
-                .limit(20)
             if (error) throw error
-
-            // Enrich with names from friends list
-            const friendMap: Record<string, string> = {}
-            friends.forEach((f: any) => {
-                if (f.friend?.id) {
-                    friendMap[f.friend.id] = f.friend.display_name || f.friend.email?.split('@')[0] || '?'
-                }
-            })
-            const myName = 'Sen'
-
-            return ((data || []) as Duel[]).map(d => ({
-                ...d,
-                challenger_name: d.challenger_id === user?.id ? myName : (friendMap[d.challenger_id] || 'Kullanıcı'),
-                opponent_name: d.opponent_id === user?.id ? myName : (friendMap[d.opponent_id] || 'Kullanıcı'),
-            }))
+            return (data || []).map(enrichDuel)
         },
-        refetchInterval: 5000,
-        retry: false
+        refetchInterval: 10000,
     })
 
-    // Watch for incoming accepted duels
-    useEffect(() => {
-        if (!duels) return
-        const active = duels.find(d => d.status === 'active')
-        if (active && active.id !== activeDuel?.id) setActiveDuel(active as Duel)
-    }, [duels])
+    const pendingReceived = duels.filter(d => d.status === 'pending' && d.opponent_id === user?.id)
+    const pendingSent = duels.filter(d => d.status === 'pending' && d.challenger_id === user?.id)
+    const finishedDuels = duels.filter(d => d.status === 'finished')
+    const myActiveDuel = duels.find(d => d.status === 'active')
 
-    // Realtime subscription for duel status changes
+    // Open active duel screen
     useEffect(() => {
-        const channel = supabase.channel('duel_invites')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'study_duels' }, () => {
-                queryClient.invalidateQueries({ queryKey: ['my_duels'] })
-            })
-            .subscribe()
-        return () => { supabase.removeChannel(channel) }
-    }, [queryClient])
+        if (myActiveDuel && !activeDuel) setActiveDuel(myActiveDuel)
+    }, [myActiveDuel])
 
-    const sendDuelMutation = useMutation({
+    // Send duel invite
+    const sendMutation = useMutation({
         mutationFn: async () => {
-            setErrorMsg('')
-            setSuccessMsg('')
+            if (!selectedFriend) throw new Error('Bir arkadaş seçmelisin')
             const { error } = await supabase.from('study_duels').insert({
                 challenger_id: user?.id,
                 opponent_id: selectedFriend,
-                duration_minutes: selectedDuration,
-                status: 'pending'
+                status: 'pending',
+                duration_minutes: 0,
             })
             if (error) throw error
         },
         onSuccess: () => {
-            setSelectedFriend(null)
-            setSuccessMsg('Meydan okuma gönderildi! Arkadaşın kabul etmesini bekle. ⚔️')
-            setTimeout(() => setSuccessMsg(''), 4000)
+            setSuccessMsg('Meydan okuma gönderildi! ⚔')
+            setSelectedFriend('')
             queryClient.invalidateQueries({ queryKey: ['my_duels'] })
+            setTimeout(() => setSuccessMsg(''), 3000)
         },
         onError: (err: any) => {
-            const msg = err?.message || 'Bir hata oluştu.'
-            if (msg.includes('does not exist') || msg.includes('relation')) {
-                setErrorMsg('⚠️ Supabase tablosu bulunamadı. Lütfen supabase_study_duel.sql dosyasını Supabase SQL Editor\'da çalıştır.')
-            } else {
-                setErrorMsg(`Hata: ${msg}`)
-            }
-            setTimeout(() => setErrorMsg(''), 8000)
+            setErrorMsg(err.message?.includes('does not exist')
+                ? '⚠ Veritabanı tablosu bulunamadı. supabase_study_duel.sql scriptini çalıştır.'
+                : err.message || 'Bir hata oluştu.')
         }
     })
 
     const respondMutation = useMutation({
         mutationFn: async ({ duelId, accept }: { duelId: string; accept: boolean }) => {
             if (accept) {
-                await supabase.from('study_duels').update({
+                const { error } = await supabase.from('study_duels').update({
                     status: 'active',
-                    started_at: new Date().toISOString()
+                    started_at: new Date().toISOString(),
                 }).eq('id', duelId)
+                if (error) throw error
             } else {
-                await supabase.from('study_duels').update({ status: 'declined' }).eq('id', duelId)
+                const { error } = await supabase.from('study_duels').update({ status: 'declined' }).eq('id', duelId)
+                if (error) throw error
             }
-        },
-        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['my_duels'] })
         }
     })
 
-    const pendingReceived = duels?.filter(d => d.status === 'pending' && d.opponent_id === user?.id) || []
-    const pendingSent = duels?.filter(d => d.status === 'pending' && d.challenger_id === user?.id) || []
-    const finishedDuels = duels?.filter(d => d.status === 'finished') || []
-
-    // Show active duel if exists
+    // If there's an active duel, show it
     if (activeDuel) {
-        return (
-            <ActiveDuel
-                duel={activeDuel}
-                onFinished={() => {
-                    setFinishedDuel(activeDuel)
-                    setActiveDuel(null)
-                    queryClient.invalidateQueries({ queryKey: ['my_duels'] })
-                }}
-            />
-        )
-    }
-
-    // Duel finished result screen
-    if (finishedDuel) {
-        const iWon = finishedDuel.winner_id === user?.id
-        return (
-            <div className={clsx(
-                "rounded-2xl p-8 text-white text-center space-y-4",
-                iWon
-                    ? "bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
-                    : "bg-gradient-to-br from-gray-600 to-gray-700"
-            )}>
-                <p className="text-5xl">{iWon ? '🏆' : '😤'}</p>
-                <h3 className="text-2xl font-black">{iWon ? 'Kazandın!' : 'Kaybettin!'}</h3>
-                <p className="text-sm opacity-80">{iWon ? '+50 XP hesabına eklendi!' : 'Bir dahaki sefere daha iyi odaklan!'}</p>
-                <Button
-                    onClick={() => setFinishedDuel(null)}
-                    className="bg-white text-gray-900 hover:bg-gray-100"
-                >
-                    Tamam
-                </Button>
-            </div>
-        )
+        return <ActiveDuel duel={activeDuel} onFinished={() => {
+            setActiveDuel(null)
+            queryClient.invalidateQueries({ queryKey: ['my_duels'] })
+        }} />
     }
 
     return (
         <div className="space-y-6">
-
-            {/* SQL not run warning */}
+            {/* Error / Success banners */}
             {duelsError && (
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-sm font-semibold">
-                    ⚠️ <strong>Kurulum gerekiyor:</strong> Supabase SQL Editor'da <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">supabase_study_duel.sql</code> dosyasını çalıştır.
+                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-sm text-red-600 font-semibold border border-red-200 dark:border-red-800">
+                    ⚠ Düellolar yüklenemedi — supabase_study_duel.sql scriptini Supabase'de çalıştırdın mı?
                 </div>
             )}
+            {errorMsg && <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-sm text-red-600 font-semibold border border-red-200 dark:border-red-800">{errorMsg}</div>}
+            {successMsg && <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 text-sm text-green-600 font-semibold border border-green-200 dark:border-green-800">{successMsg}</div>}
 
-            {/* Error / Success feedback */}
-            {errorMsg && (
-                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm font-medium">
-                    {errorMsg}
+            {/* How it works */}
+            <Card className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-100 dark:border-indigo-900/30">
+                <div className="flex items-center gap-2 mb-2">
+                    <Swords className="h-5 w-5 text-indigo-500" />
+                    <h3 className="font-black text-gray-900 dark:text-white">Düello Modu</h3>
                 </div>
-            )}
-            {successMsg && (
-                <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-sm font-semibold">
-                    {successMsg}
-                </div>
-            )}
-            {/* New Duel */}
-            <Card className="p-5">
-                <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2 mb-4">
-                    <Swords className="h-5 w-5 text-red-500" />
-                    Yeni Düello Gönder
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                    ⚔ <strong>Kim önce durursa kaybeder!</strong> İki taraf aynı anda çalışmaya başlar.
+                    Mola istemek istersen <strong>Mola İste</strong> butonuyla karşı taraftan onay al.
+                    Kazanana <strong className="text-indigo-600">+75 XP</strong>!
+                </p>
+            </Card>
+
+            {/* Challenge a friend */}
+            <Card className="p-5 space-y-4">
+                <h3 className="font-black text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-yellow-500" />
+                    Meydan Oku
                 </h3>
-                <div className="space-y-4">
-                    {/* Friend picker */}
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Rakip Seç</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {friends.map((f: any) => (
-                                <button
-                                    key={f.friend?.id}
-                                    onClick={() => setSelectedFriend(f.friend?.id === selectedFriend ? null : f.friend?.id)}
-                                    className={clsx(
-                                        "flex items-center gap-2 p-2.5 rounded-xl border-2 text-left transition-all text-sm font-semibold",
-                                        selectedFriend === f.friend?.id
-                                            ? "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600"
-                                            : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 text-gray-700 dark:text-gray-300"
-                                    )}
-                                >
-                                    <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-black flex-shrink-0">
-                                        {(f.friend?.display_name || f.friend?.email)?.[0]?.toUpperCase()}
-                                    </div>
-                                    <span className="truncate">{f.friend?.display_name || f.friend?.email?.split('@')[0]}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Duration picker */}
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Süre</p>
-                        <div className="flex gap-2">
-                            {DURATION_OPTIONS.map(d => (
-                                <button
-                                    key={d}
-                                    onClick={() => setSelectedDuration(d)}
-                                    className={clsx(
-                                        "flex-1 py-2 rounded-xl text-sm font-bold transition-all",
-                                        selectedDuration === d
-                                            ? "bg-red-500 text-white shadow-sm"
-                                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                                    )}
-                                >
-                                    {d} dk
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <Button
-                        className="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/25"
-                        onClick={() => sendDuelMutation.mutate()}
-                        disabled={!selectedFriend || sendDuelMutation.isPending}
-                    >
-                        <Swords className="h-4 w-4 mr-2" />
-                        {sendDuelMutation.isPending ? 'Gönderiliyor…' : 'Meydan Oku!'}
-                    </Button>
-                </div>
+                <select
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={selectedFriend}
+                    onChange={e => setSelectedFriend(e.target.value)}
+                >
+                    <option value="">Arkadaş seç…</option>
+                    {friends.map(f => (
+                        <option key={f.id} value={f.id}>{f.display_name || f.email?.split('@')[0]}</option>
+                    ))}
+                </select>
+                <Button
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+                    onClick={() => sendMutation.mutate()}
+                    disabled={!selectedFriend || sendMutation.isPending}
+                >
+                    {sendMutation.isPending ? 'Gönderiliyor…' : '⚔ Meydan Oku!'}
+                </Button>
             </Card>
 
             {/* Incoming invites */}
@@ -424,27 +642,25 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                 <div className="space-y-3">
                     <p className="text-xs font-black text-gray-500 uppercase tracking-widest">Gelen Meydan Okumalar</p>
                     {pendingReceived.map(d => (
-                        <Card key={d.id} className="p-4 border-l-4 border-red-500">
+                        <Card key={d.id} className="p-4 border-l-4 border-indigo-500">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <Swords className="h-4 w-4 text-red-500 shrink-0" />
+                                    <Swords className="h-4 w-4 text-indigo-500 shrink-0" />
                                     <div className="min-w-0">
-                                        <p className="font-bold text-gray-900 dark:text-white text-sm truncate">
-                                            {d.challenger_name}
-                                        </p>
-                                        <p className="text-xs text-gray-400">{d.duration_minutes} dakika</p>
+                                        <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{d.challenger_name}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">⚔ Dayanıklılık Düellosu</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-2 shrink-0">
                                     <button
                                         onClick={() => respondMutation.mutate({ duelId: d.id, accept: true })}
-                                        className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200 transition-colors"
+                                        className="p-2 rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200 transition-colors"
                                     >
                                         <Check className="h-4 w-4" />
                                     </button>
                                     <button
                                         onClick={() => respondMutation.mutate({ duelId: d.id, accept: false })}
-                                        className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 transition-colors"
+                                        className="p-2 rounded-xl bg-red-100 dark:bg-red-900/30 text-red-500 hover:bg-red-200 transition-colors"
                                     >
                                         <X className="h-4 w-4" />
                                     </button>
@@ -466,7 +682,6 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 truncate">
                                     {d.opponent_name} yanıt bekliyor…
                                 </p>
-                                <p className="text-xs text-gray-400">{d.duration_minutes} dk</p>
                             </div>
                         </Card>
                     ))}
@@ -481,29 +696,20 @@ export default function StudyDuel({ friends }: { friends: any[] }) {
                         const iWon = d.winner_id === user?.id
                         const opponentName = d.challenger_id === user?.id ? d.opponent_name : d.challenger_name
                         return (
-                            <Card key={d.id} className={clsx("p-4 flex items-center justify-between", iWon ? "border-l-4 border-amber-400" : "border-l-4 border-gray-300")}>
+                            <Card key={d.id} className={clsx('p-4 flex items-center justify-between', iWon ? 'border-l-4 border-amber-400' : 'border-l-4 border-gray-300')}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <span className="text-xl">{iWon ? '🏆' : '😤'}</span>
                                     <div className="min-w-0">
-                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
-                                            {opponentName}
-                                        </p>
-                                        <p className="text-xs text-gray-400">{d.duration_minutes} dk</p>
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{opponentName}</p>
+                                        <p className="text-[10px] text-gray-400 font-bold uppercase">⚔ Dayanıklılık Modu</p>
                                     </div>
                                 </div>
-                                <div className={clsx("text-xs font-black px-2 py-1 rounded-lg", iWon ? "bg-amber-100 dark:bg-amber-900/20 text-amber-600" : "bg-gray-100 dark:bg-gray-800 text-gray-400")}>
-                                    {iWon ? '+50 XP' : 'Kayıp'}
+                                <div className={clsx('text-xs font-black px-2 py-1 rounded-lg', iWon ? 'bg-amber-100 dark:bg-amber-900/20 text-amber-600' : 'bg-gray-100 dark:bg-gray-800 text-gray-400')}>
+                                    {iWon ? '+75 XP' : 'Kayıp'}
                                 </div>
                             </Card>
                         )
                     })}
-                </div>
-            )}
-
-            {!isLoading && duels?.length === 0 && friends.length === 0 && (
-                <div className="text-center py-10 text-gray-400">
-                    <Swords className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm font-semibold">Düello yapmak için önce arkadaş ekle!</p>
                 </div>
             )}
         </div>
