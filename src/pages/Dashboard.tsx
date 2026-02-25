@@ -39,7 +39,7 @@ export default function Dashboard() {
 
     // Stats Query
     const { data: stats } = useQuery({
-        queryKey: ['dashboard_stats'],
+        queryKey: ['dashboard_stats', new Date().toLocaleDateString()],
         queryFn: async () => {
             // Use local midnight for "today" (important for UTC+3 and other timezones)
             const todayLocal = new Date()

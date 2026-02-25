@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GraduationCap, Save, CheckCircle, TrendingUp } from 'lucide-react'
+import { GraduationCap, Save, CheckCircle, TrendingUp, UserPlus, X, Share2, Inbox, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui-base'
@@ -45,6 +45,14 @@ export default function Grades() {
     const [gradeInputs, setGradeInputs] = useState<Record<string, { grade: string, weight: string }>>({})
     const [savedFeedback, setSavedFeedback] = useState<Record<string, boolean>>({})
 
+    // Share state
+    const [sharingCourse, setSharingCourse] = useState<Course | null>(null)
+    const [selectedFriendId, setSelectedFriendId] = useState('')
+    const [shareLoading, setShareLoading] = useState(false)
+    const [shareSuccess, setShareSuccess] = useState(false)
+    const [acceptingCourseShare, setAcceptingCourseShare] = useState<any | null>(null)
+    const [acceptLoading, setAcceptLoading] = useState(false)
+
     // Fetch all courses
     const { data: courses } = useQuery({
         queryKey: ['courses_for_grades'],
@@ -59,6 +67,88 @@ export default function Grades() {
         },
         enabled: !!user
     })
+
+    // Friends for share picker
+    const { data: friends = [] } = useQuery({
+        queryKey: ['friends_for_course_share'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('friendships')
+                .select('friend:friend_id (id, email, display_name)')
+                .eq('user_id', user?.id)
+                .eq('status', 'accepted')
+            return (data || []).map((f: any) => f.friend).filter(Boolean)
+        },
+        enabled: !!user
+    })
+
+    // Incoming pending course shares
+    const { data: incomingCourseShares = [] } = useQuery({
+        queryKey: ['incoming_course_shares', user?.id],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('course_shares')
+                .select('*, sender:sender_id (display_name, email)')
+                .eq('receiver_id', user?.id)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false })
+            return data || []
+        },
+        refetchInterval: 15000,
+        enabled: !!user
+    })
+
+    const sendCourseShare = async (course: Course) => {
+        if (!selectedFriendId) return
+        setShareLoading(true)
+        try {
+            const { error } = await supabase.from('course_shares').insert({
+                sender_id: user?.id,
+                receiver_id: selectedFriendId,
+                course_name: course.name,
+                course_code: course.code,
+                course_color: course.color,
+                course_credit: course.credit,
+            })
+            if (error) throw error
+            setShareSuccess(true)
+            setTimeout(() => { setSharingCourse(null); setShareSuccess(false); setSelectedFriendId('') }, 1500)
+        } catch (err: any) {
+            alert(err.message || 'Paylaşım hatası')
+        } finally {
+            setShareLoading(false)
+        }
+    }
+
+    const acceptCourseShare = async () => {
+        if (!acceptingCourseShare) return
+        setAcceptLoading(true)
+        try {
+            const { error } = await supabase.from('courses').insert({
+                user_id: user?.id,
+                name: acceptingCourseShare.course_name,
+                code: acceptingCourseShare.course_code || '',
+                color: acceptingCourseShare.course_color || '#6366f1',
+                credit: acceptingCourseShare.course_credit || 3,
+                syllabus: [],
+            })
+            if (error) throw error
+            await supabase.from('course_shares').update({ status: 'accepted' }).eq('id', acceptingCourseShare.id)
+            queryClient.invalidateQueries({ queryKey: ['courses_for_grades'] })
+            queryClient.invalidateQueries({ queryKey: ['courses'] })
+            queryClient.invalidateQueries({ queryKey: ['incoming_course_shares'] })
+            setAcceptingCourseShare(null)
+        } catch (err: any) {
+            alert(err.message || 'Ekleme hatası')
+        } finally {
+            setAcceptLoading(false)
+        }
+    }
+
+    const declineCourseShare = async (shareId: string) => {
+        await supabase.from('course_shares').update({ status: 'declined' }).eq('id', shareId)
+        queryClient.invalidateQueries({ queryKey: ['incoming_course_shares'] })
+    }
 
     // Fetch all grades
     const { data: allGrades } = useQuery({
@@ -227,6 +317,38 @@ export default function Grades() {
                 </Card>
             )}
 
+            {/* Incoming Course Shares */}
+            {incomingCourseShares.length > 0 && (
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/40 rounded-2xl p-4 space-y-3">
+                    <h3 className="font-black text-sm text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                        <Inbox className="h-4 w-4" /> Gelen Ders Paylaşımları ({incomingCourseShares.length})
+                    </h3>
+                    {incomingCourseShares.map((share: any) => (
+                        <div key={share.id} className="flex items-center justify-between gap-3 bg-white dark:bg-gray-900 rounded-xl p-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: share.course_color }} />
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{share.course_name}</p>
+                                    <p className="text-[10px] text-gray-400">
+                                        <span className="text-indigo-500 font-bold">{share.sender?.display_name || share.sender?.email?.split('@')[0]}</span> paylaştı · {share.course_code} · {share.course_credit} Kredi
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-1.5 shrink-0">
+                                <button
+                                    onClick={() => setAcceptingCourseShare(share)}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                                >Ekle</button>
+                                <button
+                                    onClick={() => declineCourseShare(share.id)}
+                                    className="p-1.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                ><X className="h-3.5 w-3.5" /></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* Course Grid - Overview */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {courses?.map(course => {
@@ -235,28 +357,37 @@ export default function Grades() {
                     const isSelected = selectedCourse === course.id
 
                     return (
-                        <button
-                            key={course.id}
-                            onClick={() => setSelectedCourse(isSelected ? null : course.id)}
-                            className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${isSelected
-                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 shadow-md shadow-purple-100 dark:shadow-none scale-[1.02]'
-                                : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700'
-                                }`}
-                        >
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: course.color }} />
-                                <span className="text-xs font-bold text-gray-400">{course.code}</span>
-                            </div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{course.name}</p>
-                            {letterGrade ? (
-                                <div className="flex items-baseline gap-1 mt-2">
-                                    <span className={`text-xl font-black ${letterGrade.color}`}>{letterGrade.letter}</span>
-                                    <span className="text-xs text-gray-400">{avg.toFixed(1)}</span>
+                        <div key={course.id} className="relative group/card">
+                            <button
+                                onClick={() => setSelectedCourse(isSelected ? null : course.id)}
+                                className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${isSelected
+                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 shadow-md shadow-purple-100 dark:shadow-none scale-[1.02]'
+                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700'
+                                    }`}
+                            >
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: course.color }} />
+                                    <span className="text-xs font-bold text-gray-400">{course.code}</span>
                                 </div>
-                            ) : (
-                                <p className="text-xs text-gray-400 mt-2 italic">Not girilmemiş</p>
-                            )}
-                        </button>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{course.name}</p>
+                                {letterGrade ? (
+                                    <div className="flex items-baseline gap-1 mt-2">
+                                        <span className={`text-xl font-black ${letterGrade.color}`}>{letterGrade.letter}</span>
+                                        <span className="text-xs text-gray-400">{avg.toFixed(1)}</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-400 mt-2 italic">Not girilmemiş</p>
+                                )}
+                            </button>
+                            {/* Share button overlay */}
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setSharingCourse(course); setSelectedFriendId(''); setShareSuccess(false) }}
+                                title="Arkadaşa Gönder"
+                                className="absolute top-2 right-2 p-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-gray-300 hover:text-indigo-500 hover:border-indigo-300 opacity-0 group-hover/card:opacity-100 transition-all shadow-sm"
+                            >
+                                <UserPlus className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
                     )
                 })}
             </div>
@@ -341,6 +472,95 @@ export default function Grades() {
                         )}
                     </Button>
                 </Card>
+            )}
+            {/* Share Course Modal */}
+            {sharingCourse && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2">
+                                <Share2 className="h-5 w-5 text-indigo-500" />
+                                Dersi Paylaş
+                            </h3>
+                            <button onClick={() => setSharingCourse(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                            <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: sharingCourse.color }} />
+                            <div>
+                                <p className="font-bold text-gray-900 dark:text-white text-sm">{sharingCourse.name}</p>
+                                <p className="text-gray-400 text-xs">{sharingCourse.code} · {sharingCourse.credit} Kredi</p>
+                            </div>
+                        </div>
+                        {shareSuccess ? (
+                            <p className="text-center text-green-600 font-bold text-sm py-2">Ders paylaşıldı! ✅</p>
+                        ) : (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Arkadaş seç</label>
+                                    <select
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        value={selectedFriendId}
+                                        onChange={e => setSelectedFriendId(e.target.value)}
+                                    >
+                                        <option value="">Arkadaş seç…</option>
+                                        {(friends as any[]).map((f: any) => (
+                                            <option key={f.id} value={f.id}>{f.display_name || f.email?.split('@')[0]}</option>
+                                        ))}
+                                    </select>
+                                    {friends.length === 0 && <p className="text-xs text-gray-400 mt-1">Henüz arkadaşın yok. Sosyal sayfasından ekle!</p>}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setSharingCourse(null)} className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400">
+                                        İptal
+                                    </button>
+                                    <button
+                                        onClick={() => sendCourseShare(sharingCourse)}
+                                        disabled={!selectedFriendId || shareLoading}
+                                        className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                                    >
+                                        {shareLoading ? 'Gönderiliyor…' : '📤 Gönder'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Accept Course Share Modal */}
+            {acceptingCourseShare && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-black text-gray-900 dark:text-white">Ders Eklensin Mi?</h3>
+                            <button onClick={() => setAcceptingCourseShare(null)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl p-3">
+                            <div className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: acceptingCourseShare.course_color }} />
+                            <div>
+                                <p className="font-bold text-gray-900 dark:text-white text-sm">{acceptingCourseShare.course_name}</p>
+                                <p className="text-gray-400 text-xs">{acceptingCourseShare.course_code} · {acceptingCourseShare.course_credit} Kredi</p>
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-500">Bu ders derslerinize eklenecek. İçerik (notlar, program) boş gelir, kendiniz düzenleyebilirsiniz.</p>
+                        <div className="flex gap-2">
+                            <button onClick={() => setAcceptingCourseShare(null)} className="flex-1 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-600 dark:text-gray-400">
+                                İptal
+                            </button>
+                            <button
+                                onClick={acceptCourseShare}
+                                disabled={acceptLoading}
+                                className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                {acceptLoading ? 'Ekleniyor…' : '✅ Ekle'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     )
