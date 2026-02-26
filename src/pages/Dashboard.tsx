@@ -51,12 +51,15 @@ export default function Dashboard() {
                 supabase.from('study_sessions').select('duration', { count: 'exact' }).eq('user_id', user?.id),
                 supabase.from('assignments').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('is_completed', false),
                 supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', todayISO),
-                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('updated_at', todayISO)
+                // Use completed_at (set by DB trigger) so only TODAY's completions count
+                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('completed_at', todayISO)
             ])
 
             // duration is stored in SECONDS — convert to minutes for the daily goal (target: 120 min)
             const totalSecondsToday = todaySessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0
             const totalMinutesToday = Math.floor(totalSecondsToday / 60)
+            // Did the user study at all today? Used for the streak daily quest.
+            const studiedToday = (todaySessionsRes.data?.length ?? 0) > 0
 
             return {
                 courses: coursesRes.count || 0,
@@ -64,6 +67,7 @@ export default function Dashboard() {
                 totalDuration: sessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0,
                 pendingAssignments: pendingAssignmentsRes.count || 0,
                 totalMinutesToday,
+                studiedToday,
                 assignmentsCompletedToday: todayAssignmentsRes.data?.length || 0
             }
         }
@@ -386,6 +390,7 @@ export default function Dashboard() {
                     totalMinutesToday={stats?.totalMinutesToday || 0}
                     assignmentsCompletedToday={stats?.assignmentsCompletedToday || 0}
                     currentStreak={streak || 0}
+                    studiedToday={stats?.studiedToday || false}
                 />
             </div>
 

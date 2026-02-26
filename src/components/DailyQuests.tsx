@@ -5,9 +5,10 @@ interface DailyQuestsProps {
     totalMinutesToday: number
     assignmentsCompletedToday: number
     currentStreak: number
+    studiedToday: boolean
 }
 
-export default function DailyQuests({ totalMinutesToday, assignmentsCompletedToday, currentStreak }: DailyQuestsProps) {
+export default function DailyQuests({ totalMinutesToday, assignmentsCompletedToday, currentStreak, studiedToday }: DailyQuestsProps) {
     const goals = [
         {
             id: 'focus',
@@ -30,9 +31,9 @@ export default function DailyQuests({ totalMinutesToday, assignmentsCompletedTod
         {
             id: 'streak',
             title: 'Zinciri Kırma',
-            description: 'Günlük seriyi 1 gün daha uzat',
+            description: currentStreak > 0 ? `Serin: ${currentStreak} gün — bugün de çalış!` : 'Bugün en az bir çalışma seansı başlat',
             icon: <Zap className="w-5 h-5 text-yellow-500" />,
-            current: currentStreak > 0 ? 1 : 0,
+            current: studiedToday ? 1 : 0,
             target: 1,
             color: 'bg-yellow-500'
         }
