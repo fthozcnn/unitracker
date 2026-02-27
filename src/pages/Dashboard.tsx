@@ -41,34 +41,45 @@ export default function Dashboard() {
     const { data: stats } = useQuery({
         queryKey: ['dashboard_stats', new Date().toLocaleDateString()],
         queryFn: async () => {
-            // Use local midnight for "today" (important for UTC+3 and other timezones)
             const todayLocal = new Date()
             todayLocal.setHours(0, 0, 0, 0)
             const todayISO = todayLocal.toISOString()
 
-            const [coursesRes, sessionsRes, pendingAssignmentsRes, todaySessionsRes, todayAssignmentsRes] = await Promise.all([
+            const [coursesRes, sessionsRes, pendingAssignmentsRes, todaySessionsRes] = await Promise.all([
                 supabase.from('courses').select('id', { count: 'exact' }).eq('user_id', user?.id),
-                supabase.from('study_sessions').select('duration', { count: 'exact' }).eq('user_id', user?.id),
+                supabase.from('study_sessions').select('id', { count: 'exact' }).eq('user_id', user?.id),
                 supabase.from('assignments').select('id', { count: 'exact' }).eq('user_id', user?.id).eq('is_completed', false),
-                supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', todayISO),
-                // Use completed_at (set by DB trigger) so only TODAY's completions count
-                supabase.from('assignments').select('id').eq('user_id', user?.id).eq('is_completed', true).gte('completed_at', todayISO)
+                supabase.from('study_sessions')
+                    .select('duration, course_id, start_time')
+                    .eq('user_id', user?.id)
+                    .gte('start_time', todayISO),
             ])
 
-            // duration is stored in SECONDS — convert to minutes for the daily goal (target: 120 min)
-            const totalSecondsToday = todaySessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0
+            const todaySessions = todaySessionsRes.data || []
+            const totalSecondsToday = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0)
             const totalMinutesToday = Math.floor(totalSecondsToday / 60)
-            // Did the user study at all today? Used for the streak daily quest.
-            const studiedToday = (todaySessionsRes.data?.length ?? 0) > 0
+            const studiedToday = todaySessions.length > 0
+            const sessionsCountToday = todaySessions.length
+            // Pomodoro: sessions between 20-35 minutes
+            const pomodoroCountToday = todaySessions.filter(s => s.duration >= 1200 && s.duration <= 2100).length
+            // Long session: at least one session >= 30 minutes
+            const longSessionToday = todaySessions.some(s => s.duration >= 1800)
+            // Diverse: unique courses studied today
+            const differentCoursesToday = new Set(todaySessions.map((s: any) => s.course_id).filter(Boolean)).size
+            // Early bird: session started before 08:00 local time
+            const earlyBirdToday = todaySessions.some(s => new Date(s.start_time).getHours() < 8)
 
             return {
                 courses: coursesRes.count || 0,
                 sessions: sessionsRes.count || 0,
-                totalDuration: sessionsRes.data?.reduce((acc, curr) => acc + (curr.duration || 0), 0) || 0,
                 pendingAssignments: pendingAssignmentsRes.count || 0,
                 totalMinutesToday,
                 studiedToday,
-                assignmentsCompletedToday: todayAssignmentsRes.data?.length || 0
+                sessionsCountToday,
+                pomodoroCountToday,
+                longSessionToday,
+                differentCoursesToday,
+                earlyBirdToday,
             }
         }
     })
@@ -388,9 +399,13 @@ export default function Dashboard() {
             <div className="mb-4 md:mb-6">
                 <DailyQuests
                     totalMinutesToday={stats?.totalMinutesToday || 0}
-                    assignmentsCompletedToday={stats?.assignmentsCompletedToday || 0}
-                    currentStreak={streak || 0}
                     studiedToday={stats?.studiedToday || false}
+                    currentStreak={streak || 0}
+                    pomodoroCountToday={stats?.pomodoroCountToday || 0}
+                    longSessionToday={stats?.longSessionToday || false}
+                    differentCoursesToday={stats?.differentCoursesToday || 0}
+                    earlyBirdToday={stats?.earlyBirdToday || false}
+                    sessionsCountToday={stats?.sessionsCountToday || 0}
                 />
             </div>
 
@@ -401,9 +416,9 @@ export default function Dashboard() {
                         <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Toplam Çalışma</p>
+                        <p className="text-xs md:text-sm font-medium text-gray-500 truncate">Toplam Seans</p>
                         <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
-                            {Math.round((stats?.totalDuration || 0) / 3600)} <span className="text-xs md:text-sm font-normal">saat</span>
+                            {stats?.sessions || 0} <span className="text-xs md:text-sm font-normal">seans</span>
                         </h3>
                     </div>
                 </Card>

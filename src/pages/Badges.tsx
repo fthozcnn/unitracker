@@ -118,6 +118,7 @@ export default function Badges() {
             case 'grades_logged': return Math.min(100, (userStats.scoredAssignments / badge.criteria_value) * 100)
             case 'focus_master': return Math.min(100, (userStats.focusMasterSessions / badge.criteria_value) * 100)
             case 'weekly_marathon': return Math.min(100, (userStats.maxWeeklyHours / badge.criteria_value) * 100)
+            case 'sessions_count': return Math.min(100, (userStats.sessionsCount / badge.criteria_value) * 100)
             default: return 0
         }
     }
