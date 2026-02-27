@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { GraduationCap, Save, CheckCircle, TrendingUp, UserPlus, X, Share2, Inbox, Check } from 'lucide-react'
+import { GraduationCap, Save, CheckCircle, TrendingUp, UserPlus, X, Share2, Inbox, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui-base'
@@ -210,6 +210,25 @@ export default function Grades() {
             queryClient.invalidateQueries({ queryKey: ['all_course_grades'] })
             setSavedFeedback(prev => ({ ...prev, [courseId]: true }))
             setTimeout(() => setSavedFeedback(prev => ({ ...prev, [courseId]: false })), 2000)
+        }
+    })
+
+    // Delete all saved grades for a course
+    const deleteGradesMutation = useMutation({
+        mutationFn: async (courseId: string) => {
+            const { error } = await supabase
+                .from('course_grades')
+                .delete()
+                .eq('user_id', user?.id)
+                .eq('course_id', courseId)
+            if (error) throw error
+        },
+        onSuccess: (_data, _courseId) => {
+            queryClient.invalidateQueries({ queryKey: ['all_course_grades'] })
+            // Reset inputs to blank defaults
+            const defaults: Record<string, { grade: string, weight: string }> = {}
+            EXAM_TYPES.forEach(t => { defaults[t.id] = { grade: '', weight: t.defaultWeight.toString() } })
+            setGradeInputs(defaults)
         }
     })
 
@@ -441,6 +460,19 @@ export default function Grades() {
                                         />
                                         <span className="text-[10px] text-gray-400 font-bold">%</span>
                                     </div>
+                                    {/* Clear single row */}
+                                    {input.grade !== '' && (
+                                        <button
+                                            onClick={() => setGradeInputs(prev => ({
+                                                ...prev,
+                                                [type.id]: { ...prev[type.id], grade: '' }
+                                            }))}
+                                            title="Bu notu temizle"
+                                            className="p-1.5 text-gray-300 hover:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
                                 </div>
                             )
                         })}
@@ -459,18 +491,35 @@ export default function Grades() {
                         </div>
                     )}
 
-                    <Button
-                        className="w-full mt-4"
-                        size="sm"
-                        onClick={() => saveGradesMutation.mutate(selectedCourse)}
-                        disabled={saveGradesMutation.isPending}
-                    >
-                        {savedFeedback[selectedCourse] ? (
-                            <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Kaydedildi!</span>
-                        ) : (
-                            <span className="flex items-center gap-1"><Save className="h-4 w-4" /> Notları Kaydet</span>
+                    <div className="flex gap-2 mt-4">
+                        <Button
+                            className="flex-1"
+                            size="sm"
+                            onClick={() => saveGradesMutation.mutate(selectedCourse)}
+                            disabled={saveGradesMutation.isPending || deleteGradesMutation.isPending}
+                        >
+                            {savedFeedback[selectedCourse] ? (
+                                <span className="flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Kaydedildi!</span>
+                            ) : (
+                                <span className="flex items-center gap-1"><Save className="h-4 w-4" /> Notları Kaydet</span>
+                            )}
+                        </Button>
+                        {/* Delete all grades for this course */}
+                        {allGrades?.some((g: any) => g.course_id === selectedCourse) && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm('Bu derse ait tüm kayıtlı notlar silinsin mi? Bu işlem geri alınamaz.'))
+                                        deleteGradesMutation.mutate(selectedCourse)
+                                }}
+                                disabled={deleteGradesMutation.isPending || saveGradesMutation.isPending}
+                                title="Kayıtlı notları sil"
+                                className="px-4 py-2 rounded-xl border border-red-200 dark:border-red-900/40 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                {deleteGradesMutation.isPending ? 'Siliniyor…' : 'Sil'}
+                            </button>
                         )}
-                    </Button>
+                    </div>
                 </Card>
             )}
             {/* Share Course Modal */}
