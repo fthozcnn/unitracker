@@ -4,6 +4,7 @@ import { GraduationCap, Save, CheckCircle, TrendingUp, UserPlus, X, Share2, Inbo
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui-base'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const EXAM_TYPES = [
     { id: 'vize', label: 'Vize', defaultWeight: 40 },
@@ -33,6 +34,9 @@ type Course = {
 
 export default function Grades() {
     const { user } = useAuth()
+    useDocumentTitle('Not & Vize/Final Hesaplama', {
+        description: 'Vize, final, ödev ve proje ağırlıklarına göre ders notu ortalaması ve harf notu hesaplayın.'
+    })
     const queryClient = useQueryClient()
     const [selectedCourse, setSelectedCourse] = useState<string | null>(null)
     const [gradeInputs, setGradeInputs] = useState<Record<string, { grade: string, weight: string }>>({})

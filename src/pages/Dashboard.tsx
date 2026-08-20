@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
-import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
+import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi, HelpCircle, Swords, CalendarDays, Sparkles } from 'lucide-react'
 import { getBadgeIcon } from '../lib/badgeIcons'
 import { format, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
@@ -14,14 +14,20 @@ import { checkExamReminders } from '../lib/pushNotifications'
 import OnboardingWizard from '../components/OnboardingWizard'
 import DailyQuests from '../components/DailyQuests'
 import WeeklySummaryCard from '../components/WeeklySummaryCard'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import FAQModal from '../components/FAQModal'
 
 export default function Dashboard() {
     const { user, profile } = useAuth()
     useBadgeCheck()
+    useDocumentTitle('Ana Sayfa', {
+        description: 'Dersleriniz, günlük hedefleriniz, haftalık özet ve çalışma istatistikleriniz.'
+    })
     const [friendPresence, setFriendPresence] = useState<Record<string, { status: string, current_course: string | null }>>({})
     const [showOnboarding, setShowOnboarding] = useState(() => {
         return !localStorage.getItem('onboarding_completed')
     })
+    const [faqModalOpen, setFaqModalOpen] = useState(false)
 
     // Recent Badges Query
     const { data: recentBadges, isLoading: isLoadingBadges } = useQuery({
@@ -313,7 +319,7 @@ export default function Dashboard() {
             <WeeklySummaryCard />
 
             {/* Home Header & Quick Actions */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">
                         <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
@@ -327,7 +333,16 @@ export default function Dashboard() {
                     </h2>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <button
+                        type="button"
+                        onClick={() => setFaqModalOpen(true)}
+                        className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 font-medium text-xs flex items-center gap-1.5 transition-colors border border-gray-200 dark:border-slate-700 shadow-sm"
+                        title="Sıkça Sorulan Sorular"
+                    >
+                        <HelpCircle className="h-4 w-4 text-indigo-500" />
+                        <span className="hidden sm:inline">SSS & Yardım</span>
+                    </button>
                     <Link to="/badges" className="flex-1 md:flex-none">
                         <Button variant="secondary" className="w-full">
                             <Trophy className="h-4 w-4 mr-2 text-amber-500" />
@@ -335,12 +350,67 @@ export default function Dashboard() {
                         </Button>
                     </Link>
                     <Link to="/study" className="flex-1 md:flex-none">
-                        <Button className="shadow-lg shadow-blue-500/20 w-full">
-                            <Play className="h-5 w-5 mr-2 fill-current" />
+                        <Button className="shadow-lg shadow-indigo-500/25 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold w-full">
+                            <Play className="h-4 w-4 mr-2 fill-current" />
                             Çalışmaya Başla
                         </Button>
                     </Link>
                 </div>
+            </div>
+
+            {/* Quick Action Navigation Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <Link
+                    to="/study"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm transition-all hover:scale-[1.01]"
+                >
+                    <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 rounded-lg text-emerald-600 dark:text-emerald-400">
+                        <Timer className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">Pomodoro</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Odaklanma Başlat</p>
+                    </div>
+                </Link>
+
+                <Link
+                    to="/schedule"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm transition-all hover:scale-[1.01]"
+                >
+                    <div className="p-2 bg-indigo-100 dark:bg-indigo-950/60 rounded-lg text-indigo-600 dark:text-indigo-400">
+                        <CalendarDays className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">Ders Programı</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Haftalık Akış</p>
+                    </div>
+                </Link>
+
+                <Link
+                    to="/grades"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm transition-all hover:scale-[1.01]"
+                >
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg text-blue-600 dark:text-blue-400">
+                        <GraduationCap className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">Not Hesapla</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Vize & Final Ortalaması</p>
+                    </div>
+                </Link>
+
+                <Link
+                    to="/social"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-sm transition-all hover:scale-[1.01]"
+                >
+                    <div className="p-2 bg-amber-100 dark:bg-amber-950/60 rounded-lg text-amber-600 dark:text-amber-400">
+                        <Swords className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-900 dark:text-white">Sosyal Düello</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Arkadaşına Meydan Oku</p>
+                    </div>
+                </Link>
             </div>
             {/* XP & Level Card */}
             {profile && (
@@ -771,6 +841,11 @@ export default function Dashboard() {
                     </div>
                 </Card>
             </div>
+
+            <FAQModal
+                isOpen={faqModalOpen}
+                onClose={() => setFaqModalOpen(false)}
+            />
         </div>
     )
 }

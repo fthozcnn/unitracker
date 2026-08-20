@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const STUDY_TIPS = [
     "Pomodoro tekniği, odaklanma süresini artırırken zihinsel yorgunluğu azaltır. Her 4 döngüde bir uzun mola vermeyi unutma! 🍅",
@@ -36,6 +37,10 @@ export default function Study() {
     const [editingSession, setEditingSession] = useState<any>(null)
     const [isZenMode, setIsZenMode] = useState(false)
     const [dailyTip, setDailyTip] = useState(STUDY_TIPS[0])
+
+    useDocumentTitle('Çalışma Odası & Pomodoro', {
+        description: 'Pomodoro zamanlayıcısı, senkronize çalışma odası ve odaklanma araçları.'
+    })
 
     useEffect(() => {
         setDailyTip(STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)])

@@ -2,21 +2,30 @@ import { useState, useEffect } from 'react'
 import { Card, Button, Input } from '../components/ui-base'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Save, Download, Upload, Trash2, Moon, Sun, Bell, BellOff } from 'lucide-react'
+import { Save, Download, Upload, Trash2, Moon, Sun, Bell, BellOff, Shield, FileText, Info, ExternalLink, HelpCircle } from 'lucide-react'
 import {
     requestNotificationPermission,
     isNotificationSupported,
     getNotificationPermission,
     sendLocalNotification
 } from '../lib/pushNotifications'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import LegalModal from '../components/LegalModal'
+import FAQModal from '../components/FAQModal'
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
+    useDocumentTitle('Profil & Ayarlar', {
+        description: 'Hesap bilgileri, bildirim izinleri, tema tercihleri ve veri yedekleme.'
+    })
     const [loading, setLoading] = useState(false)
     const [fullName, setFullName] = useState(profile?.display_name || user?.user_metadata?.full_name || '')
 
     const [pushSupported, setPushSupported] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+    const [legalModalOpen, setLegalModalOpen] = useState(false)
+    const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms'>('privacy')
+    const [faqModalOpen, setFaqModalOpen] = useState(false)
 
     useEffect(() => {
         const supported = isNotificationSupported()
@@ -366,6 +375,73 @@ export default function Settings() {
                 </div>
             </Card>
 
+            {/* About & Legal Information */}
+            <Card className="p-6">
+                <div className="flex items-start gap-4 mb-4">
+                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-600 dark:text-indigo-400">
+                        <Info className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Hakkında & Yasal Bilgiler</h2>
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                Sürüm 1.2.0
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            UniMarmara; öğrencilerin verilerini korumayı taahhüt eder. Verileriniz KVKK/GDPR uyumlu şekilde Supabase RLS ile güvence altındadır.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-gray-100 dark:border-slate-800">
+                    <button
+                        type="button"
+                        onClick={() => setFaqModalOpen(true)}
+                        className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-left transition-colors border border-gray-200/60 dark:border-slate-700/60"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <HelpCircle className="w-4 h-4 text-blue-500" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">SSS & Yardım</p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">Merak edilen sorular</p>
+                            </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-gray-400" />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => { setLegalModalTab('privacy'); setLegalModalOpen(true); }}
+                        className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-left transition-colors border border-gray-200/60 dark:border-slate-700/60"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <Shield className="w-4 h-4 text-emerald-500" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">Gizlilik Politikası</p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">KVKK aydınlatma metni</p>
+                            </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-gray-400" />
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => { setLegalModalTab('terms'); setLegalModalOpen(true); }}
+                        className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-left transition-colors border border-gray-200/60 dark:border-slate-700/60"
+                    >
+                        <div className="flex items-center gap-2.5">
+                            <FileText className="w-4 h-4 text-indigo-500" />
+                            <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">Kullanım Koşulları</p>
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400">Hizmet şartları & kurallar</p>
+                            </div>
+                        </div>
+                        <ExternalLink className="w-4 h-4 text-gray-400" />
+                    </button>
+                </div>
+            </Card>
+
             {/* Danger Zone - Reset Progress */}
             <Card className="p-6 border-2 border-red-200 dark:border-red-900/50">
                 <h2 className="text-lg font-semibold mb-2 text-red-600 dark:text-red-400">Tehlikeli Bölge</h2>
@@ -426,6 +502,17 @@ export default function Settings() {
                     </Button>
                 </div>
             </Card>
+
+            <LegalModal
+                isOpen={legalModalOpen}
+                onClose={() => setLegalModalOpen(false)}
+                initialTab={legalModalTab}
+            />
+
+            <FAQModal
+                isOpen={faqModalOpen}
+                onClose={() => setFaqModalOpen(false)}
+            />
         </div>
     )
 }

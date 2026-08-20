@@ -6,6 +6,7 @@ import { Card, Button } from '../components/ui-base'
 import { CalendarDays, Plus, Trash2, Clock, MapPin, BookOpen, Upload, Download, MoreVertical, Edit2 } from 'lucide-react'
 import { Menu, Transition } from '@headlessui/react'
 import CourseModal from '../components/CourseModal'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const DAYS = [
     { id: 1, name: 'Pazartesi', aliases: ['pazartesi', 'pzt'] },
@@ -19,6 +20,9 @@ const DAYS = [
 
 export default function Schedule() {
     const { user } = useAuth()
+    useDocumentTitle('Ders Programı', {
+        description: 'Haftalık ders programınızı görüntüleyin, düzenleyin ve PDF/Görsel olarak içe/dışa aktarın.'
+    })
     const queryClient = useQueryClient()
     const [isAdding, setIsAdding] = useState(false)
     const [uploadLoading, setUploadLoading] = useState(false)

@@ -10,6 +10,7 @@ import {
 import { subDays, subMonths, startOfWeek, endOfWeek, format, eachDayOfInterval, startOfDay, endOfDay } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { TrendingUp, Clock, BookOpen, Activity, Zap } from 'lucide-react'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 type Period = 'week' | 'month' | '3months'
 
@@ -33,6 +34,9 @@ function getPeriodRange(period: Period): { start: Date; end: Date } {
 
 export default function Analytics() {
     const { user } = useAuth()
+    useDocumentTitle('Çalışma Analizleri', {
+        description: 'Haftalık, aylık ve dönemsel ders çalışma süreleriniz, verimlilik ve odaklanma grafikleri.'
+    })
     const [period, setPeriod] = useState<Period>('week')
 
     const { start, end } = useMemo(() => getPeriodRange(period), [period])

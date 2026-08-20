@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, CheckCircle, Circle, AlertTriangle, Minus, Sav
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui-base'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const EXAM_TYPES = [
     { id: 'vize', label: 'Vize', defaultWeight: 40 },
@@ -41,8 +42,6 @@ type Course = {
     absent_count: number
 }
 
-
-
 export default function CourseDetail() {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -65,6 +64,10 @@ export default function CourseDetail() {
             const sortedSyllabus = (data.syllabus || []).sort((a: SyllabusItem, b: SyllabusItem) => a.week - b.week)
             return { ...data, syllabus: sortedSyllabus } as Course
         }
+    })
+
+    useDocumentTitle(course?.name ? `${course.name} - Ders Detayı` : 'Ders Detayı', {
+        description: course ? `${course.name} (${course.code || 'Ders'}) müfredat takibi, notları ve devamsızlık durumu.` : 'Ders detayları ve haftalık müfredat planı.'
     })
 
     // Fetch grades for this course

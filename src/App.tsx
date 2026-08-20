@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useSupabasePing } from './hooks/useSupabasePing'
+import AnalyticsTracker from './components/AnalyticsTracker'
 
 // Lazy-loaded pages for code-splitting (F3)
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -18,6 +19,8 @@ const Badges = lazy(() => import('./pages/Badges'))
 const Schedule = lazy(() => import('./pages/Schedule'))
 const Attendance = lazy(() => import('./pages/Attendance'))
 const Grades = lazy(() => import('./pages/Grades'))
+const NotFound = lazy(() => import('./pages/NotFound'))
+const Legal = lazy(() => import('./pages/Legal'))
 
 // F11: Configure QueryClient with proper caching defaults
 const queryClient = new QueryClient({
@@ -57,9 +60,13 @@ export default function App() {
             <AuthProvider>
                 <PingManager />
                 <BrowserRouter>
+                    <AnalyticsTracker />
                     <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Yükleniyor...</div>}>
                         <Routes>
                             <Route path="/login" element={<Login />} />
+                            <Route path="/privacy" element={<Legal defaultTab="privacy" />} />
+                            <Route path="/terms" element={<Legal defaultTab="terms" />} />
+                            <Route path="/legal" element={<Legal />} />
                             <Route path="/" element={
                                 <ProtectedRoute>
                                     <Layout />
@@ -77,6 +84,7 @@ export default function App() {
                                 <Route path="settings" element={<Settings />} />
                                 <Route path="social" element={<Social />} />
                             </Route>
+                            <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Suspense>
                 </BrowserRouter>

@@ -16,6 +16,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import AddAssignmentModal, { EVENT_TYPES } from '../components/AddAssignmentModal'
 import clsx from 'clsx'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 type Assignment = {
     id: string
@@ -43,9 +44,17 @@ function DaysUntil({ date }: { date: string }) {
     today.setHours(0, 0, 0, 0)
     const days = differenceInDays(target, today)
     
-    if (days < 0) return <span className="text-[10px] font-bold text-gray-400 uppercase">Geçti</span>
-    if (days === 0) return <span className="text-[10px] font-black text-red-600 uppercase animate-pulse">Bugün!</span>
-    if (days === 1) return <span className="text-[10px] font-black text-orange-500 uppercase">Yarın</span>
+    if (days < 0) return null
+    if (days === 0) return (
+        <div className="text-right">
+            <span className="text-xs font-black text-red-600 animate-pulse uppercase tracking-wider">BUGÜN!</span>
+        </div>
+    )
+    if (days === 1) return (
+        <div className="text-right">
+            <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">YARIN</span>
+        </div>
+    )
     return (
         <div className="text-right">
             <p className="text-xl font-black text-red-600 leading-none">{days}</p>
@@ -56,6 +65,9 @@ function DaysUntil({ date }: { date: string }) {
 
 export default function CalendarPage() {
     const { user } = useAuth()
+    useDocumentTitle('Akademik Takvim & Görevler', {
+        description: 'Sınav tarihleri, ödev teslimleri, projeler ve kişisel etkinlik takvimi.'
+    })
     const queryClient = useQueryClient()
     const [currentDate, setCurrentDate] = useState(new Date())
     const [activeTab, setActiveTab] = useState<'calendar' | 'events'>('calendar')

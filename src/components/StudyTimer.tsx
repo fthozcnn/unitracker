@@ -8,6 +8,7 @@ import { addXP, updatePresence, XP_REWARDS } from '../lib/xpSystem'
 import { sendPomodoroNotification, sendStudyCompleteNotification } from '../lib/pushNotifications'
 import { triggerSuccessConfetti } from '../lib/confetti'
 import { formatTime } from '../lib/formatters'
+import { trackEvent, AnalyticsEvents } from '../lib/analytics'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -87,13 +88,19 @@ export default function StudyTimer() {
                                     setPomodoroMode('short_break')
                                     setRemainingTime(settings.shortBreak * 60)
                                 }
+                                playNotification()
                                 sendPomodoroNotification('work')
                                 triggerSuccessConfetti() // Konfeti Pomodoro bitişi
+                                trackEvent(AnalyticsEvents.POMODORO_COMPLETED, {
+                                    work_minutes: settings.workTime,
+                                    cycles: cycles + 1
+                                })
                                 // Award XP for Pomodoro completion
                                 if (user) addXP(user.id, XP_REWARDS.POMODORO_COMPLETE)
                             } else {
                                 setPomodoroMode('work')
                                 setRemainingTime(settings.workTime * 60)
+                                playNotification()
                                 sendPomodoroNotification('break')
                             }
                             return 0
@@ -112,8 +119,10 @@ export default function StudyTimer() {
     const toggleTimer = () => {
         if (!isActive && mode === 'stopwatch' && seconds === 0) {
             startTimeRef.current = new Date()
+            trackEvent(AnalyticsEvents.POMODORO_STARTED, { mode: 'stopwatch' })
         } else if (!isActive && mode === 'pomodoro' && pomodoroMode === 'work') {
             startTimeRef.current = new Date()
+            trackEvent(AnalyticsEvents.POMODORO_STARTED, { mode: 'pomodoro', duration_minutes: settings.workTime })
         }
         const newActive = !isActive
         setIsActive(newActive)

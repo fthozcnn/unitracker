@@ -1,0 +1,19 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Allow: /login
+
+# Disallow authenticated private app routes from indexing
+Disallow: /study
+Disallow: /analytics
+Disallow: /settings
+Disallow: /attendance
+Disallow: /grades
+Disallow: /courses/
+Disallow: /social
+Disallow: /badges
+Disallow: /schedule
+Disallow: /calendar
+
+# Sitemap (Update domain if custom domain is configured)
+# Sitemap: https://unimarmara.vercel.app/sitemap.xml

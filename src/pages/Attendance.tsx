@@ -3,6 +3,7 @@ import { Minus, Plus, ClipboardList } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card } from '../components/ui-base'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 type Course = {
     id: string
@@ -15,6 +16,9 @@ type Course = {
 
 export default function Attendance() {
     const { user } = useAuth()
+    useDocumentTitle('Devamsızlık Takibi', {
+        description: 'Ders bazlı devamsızlık durumunuzu ve devamsızlık hakkı sınırlarınızı takip edin.'
+    })
     const queryClient = useQueryClient()
 
     const { data: courses, isLoading } = useQuery({

@@ -5,6 +5,7 @@ import { Card } from '../components/ui-base'
 import { Trophy, ShieldCheck, Lock, Compass, Zap, Activity, GraduationCap, Palette } from 'lucide-react'
 import { getBadgeIcon } from '../lib/badgeIcons'
 import { format, subDays, startOfWeek } from 'date-fns'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 const CATEGORIES = [
     { id: 'onboarding', name: 'Onboarding', icon: Compass },
@@ -23,6 +24,9 @@ const GET_CATEGORY = (type: string) => {
 
 export default function Badges() {
     const { user } = useAuth()
+    useDocumentTitle('Rozetler & Başarılar', {
+        description: 'Kazandığınız çalışma rozetleri, unvanlar ve kilitli başarılar.'
+    })
 
     const { data: allBadges } = useQuery({
         queryKey: ['all_badges'],

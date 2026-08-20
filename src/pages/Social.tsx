@@ -7,9 +7,13 @@ import { Users, Trophy, UserPlus, Check, X, Search, Target, Plus, Calendar as Ca
 import StudyDuel from '../components/StudyDuel'
 import { format, differenceInDays, isAfter, isBefore } from 'date-fns'
 import { tr } from 'date-fns/locale'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 export default function Social() {
     const { user } = useAuth()
+    useDocumentTitle('Sosyal & Çalışma Düelloları', {
+        description: 'Arkadaşlarınızla çalışma düelloları yapın, haftalık/aylık liderlik tablosunu inceleyin ve meydan okumalara katılın.'
+    })
     const queryClient = useQueryClient()
     const [activeTab, setActiveTab] = useState<'friends' | 'challenges' | 'leaderboard' | 'duels'>('leaderboard')
     const [searchEmail, setSearchEmail] = useState('')
