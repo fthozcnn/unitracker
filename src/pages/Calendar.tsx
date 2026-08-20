@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext'
 import AddAssignmentModal, { EVENT_TYPES } from '../components/AddAssignmentModal'
 import clsx from 'clsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
 
 type Assignment = {
     id: string
@@ -314,6 +315,14 @@ export default function CalendarPage() {
     const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+
+        const validation = validateUploadedFile(file, FILE_LIMITS.CSV_IMPORT)
+        if (!validation.valid) {
+            alert(`❌ Hata: ${validation.error}`)
+            e.target.value = ''
+            return
+        }
+
         const reader = new FileReader()
         reader.onload = async (ev) => {
             try {

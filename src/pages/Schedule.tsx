@@ -7,6 +7,7 @@ import { CalendarDays, Plus, Trash2, Clock, MapPin, BookOpen, Upload, Download, 
 import { Menu, Transition } from '@headlessui/react'
 import CourseModal from '../components/CourseModal'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
 
 const DAYS = [
     { id: 1, name: 'Pazartesi', aliases: ['pazartesi', 'pzt'] },
@@ -80,6 +81,13 @@ export default function Schedule() {
     const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+
+        const validation = validateUploadedFile(file, FILE_LIMITS.CSV_IMPORT)
+        if (!validation.valid) {
+            alert(`❌ Hata: ${validation.error}`)
+            e.target.value = ''
+            return
+        }
 
         setUploadLoading(true)
         const reader = new FileReader()

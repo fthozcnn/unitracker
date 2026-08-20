@@ -12,6 +12,7 @@ import {
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import LegalModal from '../components/LegalModal'
 import FAQModal from '../components/FAQModal'
+import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
@@ -101,6 +102,13 @@ export default function Settings() {
     const handleImportData = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file || !user) return
+
+        const validation = validateUploadedFile(file, FILE_LIMITS.JSON_BACKUP)
+        if (!validation.valid) {
+            alert(`❌ Hata: ${validation.error}`)
+            e.target.value = ''
+            return
+        }
 
         setLoading(true)
         try {
