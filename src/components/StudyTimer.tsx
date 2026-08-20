@@ -9,6 +9,7 @@ import { sendPomodoroNotification, sendStudyCompleteNotification } from '../lib/
 import { triggerSuccessConfetti } from '../lib/confetti'
 import { formatTime } from '../lib/formatters'
 import { trackEvent, AnalyticsEvents } from '../lib/analytics'
+import { handleSafeError } from '../lib/errorHandler'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -200,8 +201,8 @@ export default function StudyTimer() {
             queryClient.invalidateQueries({ queryKey: ['study_sessions'] })
             queryClient.invalidateQueries({ queryKey: ['recent_activity'] })
         } catch (error) {
-            console.error('Error saving session:', error)
-            alert('Kayıt hatası: ' + (error as any).message)
+            const safe = handleSafeError(error, 'Çalışma Oturumu Kaydı')
+            alert(`⚠️ ${safe.userMessage}`)
         }
     }
 

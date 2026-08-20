@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import clsx from 'clsx'
 import { sendLocalNotification } from '../lib/pushNotifications'
+import { sanitizeUrl } from '../lib/urlSanitizer'
 
 export default function NotificationCenter({ position = 'right' }: { position?: 'left' | 'right' }) {
     const { user } = useAuth()
@@ -178,7 +179,7 @@ export default function NotificationCenter({ position = 'right' }: { position?: 
                                                 </button>
                                                 {n.link && (
                                                     <Link
-                                                        to={n.link}
+                                                        to={sanitizeUrl(n.link, '/social')}
                                                         onClick={() => { setIsOpen(false); markAsReadMutation.mutate(n.id); }}
                                                         className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                                                         title="Git"

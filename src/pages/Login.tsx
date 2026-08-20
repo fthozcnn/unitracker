@@ -8,6 +8,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import LegalModal from '../components/LegalModal'
 import FAQModal from '../components/FAQModal'
 import { trackEvent, AnalyticsEvents } from '../lib/analytics'
+import { handleSafeError } from '../lib/errorHandler'
 
 export default function Login() {
     const { session } = useAuth()
@@ -57,7 +58,8 @@ export default function Login() {
                 trackEvent(AnalyticsEvents.LOGIN, { method: 'email' })
             }
         } catch (error: any) {
-            setMessage(error.error_description || error.message)
+            const safe = handleSafeError(error, isSignUp ? 'Kayıt' : 'Giriş')
+            setMessage(safe.userMessage)
         } finally {
             setLoading(false)
         }

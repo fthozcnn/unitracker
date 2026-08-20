@@ -1,3 +1,5 @@
+import { maskSensitiveData } from './masking'
+
 declare global {
     interface Window {
         dataLayer: any[]
@@ -85,7 +87,7 @@ export function trackEvent(eventName: string, params: Record<string, any> = {}) 
     }
 
     if (import.meta.env.DEV) {
-        console.log(`🎯 [Analytics Event] ${eventName}:`, eventPayload)
+        console.log(`🎯 [Analytics Event] ${eventName}:`, maskSensitiveData(eventPayload))
     }
 }
 

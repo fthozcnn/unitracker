@@ -3,6 +3,7 @@ import { Music, Youtube, X } from 'lucide-react'
 import { Card, Button, Input } from './ui-base'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { sanitizeEmbedUrl } from '../lib/urlSanitizer'
 
 interface MusicPlayerProps {
     className?: string
@@ -11,15 +12,15 @@ interface MusicPlayerProps {
 export default function MusicPlayer({ className }: MusicPlayerProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<'spotify' | 'youtube'>('youtube')
-    const [spotifyUrl, setSpotifyUrl] = useState('https://open.spotify.com/playlist/0vvXsWCC9xrXsKd4FgS800?si=5c0b784e857d42cf') // Lofi Girl
+    const [spotifyUrl, setSpotifyUrl] = useState('https://open.spotify.com/embed/playlist/0vvXsWCC9xrXsKd4FgS800?si=5c0b784e857d42cf') // Lofi Girl
     const [youtubeUrl, setYoutubeUrl] = useState('https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1&mute=1') // Lofi Girl Stream
     const [customLink, setCustomLink] = useState('')
 
     // Presets
     const spotifyPresets = [
-        { name: 'Lofi Girl', url: 'https://open.spotify.com/playlist/0vvXsWCC9xrXsKd4FgS800' },
-        { name: 'Deep Focus', url: 'https://open.spotify.com/playlist/37i9dQZF1DWZeKCadgRdKQ' },
-        { name: 'Jazz Vibes', url: 'https://open.spotify.com/playlist/37i9dQZF1DX0SM0LYsmbMT' },
+        { name: 'Lofi Girl', url: 'https://open.spotify.com/embed/playlist/0vvXsWCC9xrXsKd4FgS800' },
+        { name: 'Deep Focus', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DWZeKCadgRdKQ' },
+        { name: 'Jazz Vibes', url: 'https://open.spotify.com/embed/playlist/37i9dQZF1DX0SM0LYsmbMT' },
     ]
 
     const youtubePresets = [
@@ -30,33 +31,18 @@ export default function MusicPlayer({ className }: MusicPlayerProps) {
     const handleApplyCustomLink = (type: 'spotify' | 'youtube') => {
         if (!customLink) return
 
+        const validatedUrl = sanitizeEmbedUrl(customLink, type)
+        if (!validatedUrl) {
+            alert(`❌ Geçersiz ${type === 'spotify' ? 'Spotify' : 'YouTube'} bağlantısı. Lütfen geçerli bir ${type === 'spotify' ? 'Spotify playlist/şarkı' : 'YouTube video'} linki girin.`)
+            return
+        }
+
         if (type === 'spotify') {
-            // Convert regular Spotify links to embed links if needed
-            let embedUrl = customLink
-            if (!embedUrl.includes('embed')) {
-                embedUrl = embedUrl.replace('spotify.com/', 'spotify.com/embed/')
-            }
-            setSpotifyUrl(embedUrl)
+            setSpotifyUrl(validatedUrl)
         } else {
-            // Convert regular YouTube links to embed links if needed
-            let embedUrl = customLink
-            if (embedUrl.includes('watch?v=')) {
-                embedUrl = embedUrl.replace('watch?v=', 'embed/')
-            } else if (embedUrl.includes('youtu.be/')) {
-                embedUrl = embedUrl.replace('youtu.be/', 'www.youtube.com/embed/')
-            }
-            // Ensure we have autoplay
-            if (!embedUrl.includes('autoplay=1')) {
-                embedUrl += embedUrl.includes('?') ? '&autoplay=1' : '?autoplay=1'
-            }
-            setYoutubeUrl(embedUrl)
+            setYoutubeUrl(validatedUrl)
         }
         setCustomLink('')
-    }
-
-    const getSpotifyEmbedUrl = (url: string) => {
-        if (url.includes('embed')) return url
-        return url.replace('spotify.com/', 'spotify.com/embed/')
     }
 
     if (!isOpen) {
@@ -129,7 +115,7 @@ export default function MusicPlayer({ className }: MusicPlayerProps) {
                     {activeTab === 'spotify' ? (
                         <iframe
                             style={{ borderRadius: '12px' }}
-                            src={getSpotifyEmbedUrl(spotifyUrl)}
+                            src={spotifyUrl}
                             width="100%"
                             height="152"
                             frameBorder="0"
