@@ -37,7 +37,12 @@ function getTypeConfig(type: string) {
 }
 
 function DaysUntil({ date }: { date: string }) {
-    const days = differenceInDays(new Date(date), new Date())
+    const target = new Date(date)
+    target.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const days = differenceInDays(target, today)
+    
     if (days < 0) return <span className="text-[10px] font-bold text-gray-400 uppercase">Geçti</span>
     if (days === 0) return <span className="text-[10px] font-black text-red-600 uppercase animate-pulse">Bugün!</span>
     if (days === 1) return <span className="text-[10px] font-black text-orange-500 uppercase">Yarın</span>
@@ -89,15 +94,20 @@ export default function CalendarPage() {
         }
     })
 
-    // Upcoming events for Etkinlikler tab (next 60 days)
+    // Upcoming events for Etkinlikler tab (F8: limit to next 90 days + incomplete)
     const { data: upcomingEvents = [] } = useQuery<Assignment[]>({
         queryKey: ['upcoming_events', user?.id],
         queryFn: async () => {
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000)
             const { data } = await supabase
                 .from('assignments')
                 .select('*, courses (name, color)')
                 .eq('user_id', user?.id)
+                .gte('due_date', now.toISOString())
+                .lte('due_date', futureDate.toISOString())
                 .order('due_date', { ascending: true })
+                .limit(100)
             return (data || []) as Assignment[]
         }
     })
@@ -136,7 +146,7 @@ export default function CalendarPage() {
                 .order('created_at', { ascending: false })
             return data || []
         },
-        refetchInterval: 15000,
+        refetchInterval: 60000,  // F17: reduced from 15s to 60s
     })
 
     // Send share
@@ -246,71 +256,174 @@ export default function CalendarPage() {
 
     const upcomingGroups = groupByType(upcomingEvents)
 
-    // Export calendar to JSON
-    const handleExport = () => {
-        const allEvts = upcomingEvents
-        if (!allEvts.length) { alert('Dışa aktarılacak etkinlik bulunamadı.'); return }
-        const exportData = {
-            title: 'Akademik Takvim',
-            exported_at: new Date().toISOString(),
-            assignments: allEvts.map(a => ({
-                title: a.title,
-                type: a.type,
-                course: a.courses?.name || '',
-                due_date: a.due_date,
-                is_completed: a.is_completed,
-            }))
-        }
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const downloadCalendarTemplate = () => {
+        const header = 'Tür,Ders,Başlık,Tarih,Saat'
+        const examples = [
+            'homework,Matematiğe Giriş,Matematik Ödevi,2026-05-15,23:59',
+            'exam,Fizik I,Vize Sınavı,2026-05-20,10:30',
+            'project,Bilgisayar Mimarisi,Proje Teslimi,2026-05-25,17:00',
+        ].join('\n')
+        const content = `${header}\n${examples}`
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
         const el = document.createElement('a')
         el.href = url
-        el.download = `takvim-${format(new Date(), 'yyyy-MM-dd')}.json`
+        el.download = 'takvim_sablonu.csv'
         document.body.appendChild(el)
         el.click()
         document.body.removeChild(el)
         URL.revokeObjectURL(url)
     }
 
-    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCSVExport = () => {
+        const allEvts = upcomingEvents
+        if (!allEvts.length) { alert('Dışa aktarılacak etkinlik bulunamadı.'); return }
+        const header = 'Tür,Ders,Başlık,Tarih,Saat'
+        const rows = allEvts.map(a => {
+            const type = a.type || 'other'
+            const course = `"${(a.courses?.name || '').replace(/"/g, '""')}"`
+            const title = `"${(a.title || '').replace(/"/g, '""')}"`
+            const date = a.due_date ? a.due_date.split('T')[0] : ''
+            const time = a.due_date ? a.due_date.split('T')[1].slice(0, 5) : '09:00'
+            return `${type},${course},${title},${date},${time}`
+        })
+        const content = `${header}\n${rows.join('\n')}`
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const el = document.createElement('a')
+        el.href = url
+        el.download = `takvim-${format(new Date(), 'yyyy-MM-dd')}.csv`
+        document.body.appendChild(el)
+        el.click()
+        document.body.removeChild(el)
+        URL.revokeObjectURL(url)
+    }
+
+    const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
         const reader = new FileReader()
         reader.onload = async (ev) => {
             try {
-                const json = JSON.parse(ev.target?.result as string)
-                if (!json.assignments || !Array.isArray(json.assignments)) {
-                    alert('Dosya formatı hatalı. Lütfen daha önce dışa aktardığınız bir JSON dosyası kullanın.')
+                const text = ev.target?.result as string
+                // Skip comment lines and header
+                const allLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+                const lines = allLines.filter(l => {
+                    if (l.startsWith('#')) return false
+                    const lower = l.toLowerCase()
+                    if (lower.startsWith('tür') || lower.startsWith('tur') || lower.startsWith('başlık') || lower.startsWith('baslik') || lower.startsWith('title')) return false
+                    return true
+                })
+
+                if (lines.length === 0) {
+                    alert('Şablonda veri bulunamadı. Başlık satırının altına verilerinizi ekleyin.')
+                    e.target.value = ''
                     return
                 }
+
                 // Get courses to match names
                 const { data: courses } = await supabase.from('courses').select('id, name').eq('user_id', user?.id)
                 const courseMap: Record<string, string> = {}
-                courses?.forEach((c: any) => { courseMap[c.name] = c.id })
+                courses?.forEach((c: any) => { courseMap[c.name.toLowerCase()] = c.id })
 
-                let imported = 0
-                for (const a of json.assignments) {
-                    const courseId = courseMap[a.course]
-                    if (!courseId || !a.title || !a.due_date) continue
-                    await supabase.from('assignments').insert({
+                const VALID_TYPES = ['homework', 'exam', 'quiz', 'project', 'review', 'other']
+                const rows: any[] = []
+                const errors: string[] = []
+
+                lines.forEach((line, idx) => {
+                    // Support both comma and semicolon
+                    const delimiter = line.includes(';') ? ';' : ','
+                    
+                    // Parse CSV handling potential quoted fields
+                    const parts: string[] = []
+                    let current = ''
+                    let inQuote = false
+                    for (let i = 0; i < line.length; i++) {
+                        const ch = line[i]
+                        if (ch === '"') { inQuote = !inQuote }
+                        else if (ch === delimiter && !inQuote) { parts.push(current.trim()); current = '' }
+                        else { current += ch }
+                    }
+                    parts.push(current.trim())
+
+                    const [type, course, title, date, time] = parts
+                    if (!title) { errors.push(`Satır ${idx + 1}: Başlık boş`); return }
+                    if (!date) { errors.push(`Satır ${idx + 1}: Tarih boş`); return }
+
+                    const courseId = course ? courseMap[course.toLowerCase()] : null
+                    if (course && !courseId) {
+                        errors.push(`Satır ${idx + 1}: '${course}' dersi bulunamadı (sistemdeki ders adlarıyla eşleşmeli)`)
+                        return
+                    }
+
+                    // 1. Akıllı Tür Eşleştirme (Smart Type Mapping)
+                    const typeMapping: Record<string, string> = {
+                        'vize': 'exam', 'final': 'exam', 'sınav': 'exam', 'sinav': 'exam',
+                        'ödev': 'homework', 'odev': 'homework',
+                        'proje': 'project', 'quiz': 'quiz', 'tekrar': 'review'
+                    }
+                    const lowerType = type.toLowerCase().trim()
+                    let normalType = 'other'
+                    if (VALID_TYPES.includes(lowerType)) {
+                        normalType = lowerType
+                    } else {
+                        for (const [key, val] of Object.entries(typeMapping)) {
+                            if (lowerType.includes(key)) { normalType = val; break }
+                        }
+                    }
+
+                    // 2. Akıllı Tarih Çözümleme (Smart Date Parsing - e.g: 10.Nis.26)
+                    let cleanDate = date.trim()
+                    if (cleanDate.includes('.')) {
+                        const trMonths: Record<string, string> = {
+                            'oca': '01', 'sub': '02', 'şub': '02', 'mar': '03', 'nis': '04',
+                            'may': '05', 'haz': '06', 'tem': '07', 'agu': '08', 'ağu': '08',
+                            'eyl': '09', 'eki': '10', 'kas': '11', 'ara': '12'
+                        }
+                        const dParts = cleanDate.split('.')
+                        if (dParts.length >= 3) {
+                            const dDay = dParts[0].padStart(2, '0')
+                            const dMon = trMonths[dParts[1].toLowerCase().substring(0, 3)] || '01'
+                            const dYear = dParts[2].length === 2 ? '20' + dParts[2] : dParts[2].substring(0, 4)
+                            cleanDate = `${dYear}-${dMon}-${dDay}`
+                        }
+                    }
+                    
+                    // Combine Date and Time
+                    const validTime = time && time.includes(':') ? time.trim() : '09:00'
+                    const parsedDate = new Date(`${cleanDate}T${validTime.padStart(5, '0')}:00`)
+                    
+                    if (isNaN(parsedDate.getTime())) {
+                        errors.push(`Satır ${idx + 1}: Tarih/Saat formatı anlaşılamadı ('${date} ${time}')`)
+                        return
+                    }
+
+                    rows.push({
                         user_id: user?.id,
-                        course_id: courseId,
-                        title: a.title,
-                        type: a.type || 'other',
-                        due_date: a.due_date,
-                        is_completed: a.is_completed || false,
+                        course_id: courseId || null,
+                        title,
+                        type: normalType,
+                        due_date: parsedDate.toISOString(),
+                        is_completed: false,
                     })
-                    imported++
+                })
+
+                if (rows.length > 0) {
+                    const { error } = await supabase.from('assignments').insert(rows)
+                    if (error) throw error
+                    await queryClient.invalidateQueries({ queryKey: ['assignments'] })
+                    await queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
+                    const errMsg = errors.length > 0 ? `\n\n⚠️ ${errors.length} satır atlandı:\n${errors.slice(0, 5).join('\n')}` : ''
+                    alert(`✅ ${rows.length} etkinlik başarıyla içe aktarıldı!${errMsg}`)
+                } else {
+                    alert(`❌ Hiçbir etkinlik aktarılamadı.\n\n${errors.slice(0, 5).join('\n')}\n\nŞablonu indirerek doğru formatı kontrol edin.`)
                 }
-                await queryClient.invalidateQueries({ queryKey: ['assignments'] })
-                await queryClient.invalidateQueries({ queryKey: ['upcoming_events'] })
-                alert(`${imported} etkinlik başarıyla içe aktarıldı!`)
-            } catch {
-                alert('Dosya okunamadı. Geçerli bir JSON dosyası seçin.')
+            } catch (err: any) {
+                alert('Dosya okunamadı: ' + (err.message || 'Bilinmeyen hata'))
             }
+            e.target.value = ''
         }
         reader.readAsText(file)
-        e.target.value = ''
     }
 
     return (
@@ -655,21 +768,35 @@ export default function CalendarPage() {
 
             {/* ── EXPORT / IMPORT SECTION ── */}
             <div className="border-t border-gray-100 dark:border-gray-800 pt-6">
-                <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-3">Veri Aktar</h3>
+                <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest mb-1">Veri Aktar</h3>
+                <p className="text-[10px] text-gray-400 mb-4">
+                    💡 Boş Şablon İndir → Excel / Google Sheets'te doldur → CSV Yükle ile içe aktar
+                </p>
                 <div className="flex flex-wrap gap-3">
-                    <Button variant="secondary" onClick={handleExport} className="text-sm">
+                    {/* Template download */}
+                    <Button variant="secondary" onClick={downloadCalendarTemplate} className="text-sm border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400">
                         <FileDown className="h-4 w-4 mr-2" />
-                        Dışa Aktar (.json)
+                        Boş Şablon İndir
                     </Button>
+
+                    {/* CSV Upload */}
                     <label className="cursor-pointer">
-                        <input type="file" accept=".json" className="hidden" onChange={handleImport} />
-                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <input type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-200 dark:border-blue-800 text-sm font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                             <FileUp className="h-4 w-4" />
-                            İçe Aktar (.json)
+                            Şablon Yükle (.csv)
                         </span>
                     </label>
+
+                    {/* CSV Export */}
+                    <Button variant="secondary" onClick={handleCSVExport} className="text-sm">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Mevcut Veriyi Dışa Aktar
+                    </Button>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-2">İçe aktarma için dışa aktarılan JSON formatı kullanılmalıdır. Ders isimleri eşleşmeli.</p>
+                <p className="text-[10px] text-gray-400 mt-2">
+                    Ders isimleri sistemdeki ders adlarıyla eşleşmelidir. Tür değerleri: homework / exam / quiz / project / review / other
+                </p>
             </div>
 
             {/* Share Event Modal (inline) */}

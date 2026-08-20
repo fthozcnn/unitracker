@@ -54,6 +54,25 @@ export default function Schedule() {
         }
     })
 
+    const downloadScheduleTemplate = () => {
+        const header = 'Ders Adı,Ders Kodu,Kredi,Devamsızlık Limiti,Gün,Başlangıç,Bitiş,Derslik'
+        const examples = [
+            'Matematiğe Giriş,MAT101,5,4,Pazartesi,09:00,10:00,Amfi A',
+            'Fizik I,FIZ101,6,5,Salı,11:00,12:00,Lab 2',
+            'Türk Dili,TUR101,2,3,Çarşamba,13:00,14:00,',
+        ].join('\n')
+        const content = `${header}\n${examples}`
+        const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' })
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'ders_programi_sablonu.csv'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+    }
+
     const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -63,12 +82,24 @@ export default function Schedule() {
 
         reader.onload = async (event) => {
             const text = event.target?.result as string
-            const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+            const allLines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+            const lines = allLines.filter(line => {
+                if (line.startsWith('#')) return false
+                const lower = line.toLowerCase()
+                if (lower.startsWith('ders adı') || lower.startsWith('ders adi') || lower.startsWith('ders,')) return false
+                return true
+            })
 
-            // 0. Fetch LATEST courses directly to avoid stale data
+            if (lines.length === 0) {
+                alert('Dosyada geçerli veri satırı bulunamadı. Şablonu indirerek formatı kontrol edin.')
+                setUploadLoading(false)
+                e.target.value = ''
+                return
+            }
+
             const { data: freshCourses, error: fetchError } = await supabase
                 .from('courses')
-                .select('id, name')
+                .select('*')
                 .eq('user_id', user?.id)
 
             if (fetchError) {
@@ -77,18 +108,42 @@ export default function Schedule() {
                 return
             }
 
-            // 1. Collect all unique course names from CSV
-            const courseNamesInCSV = [...new Set(lines.map(line => line.split(',')[0].trim()))]
             const existingCourseMap = new Map((freshCourses || []).map(c => [c.name.toLowerCase(), c.id]))
+            
+            // Collect info for missing courses
+            const missingCoursesData = new Map<string, any>()
+            const csvRows: any[] = []
+            const errors: string[] = []
 
-            // 2. Identify and create missing courses
-            const missingCourseNames = courseNamesInCSV.filter(name => !existingCourseMap.has(name.toLowerCase()))
+            lines.forEach((line, index) => {
+                // Support both comma and semicolon
+                const delimiter = line.includes(';') ? ';' : ','
+                const parts = line.split(delimiter).map(p => p.trim())
+                
+                if (parts.length < 5) {
+                    errors.push(`Satır ${index + 1}: Eksik sütun (en az Ders, Gün, Başlangıç, Bitiş gerekli)`)
+                    return
+                }
 
-            if (missingCourseNames.length > 0) {
+                const [name, code, credit, limit, dayName, start, end, room] = parts
+                csvRows.push({ name, code, credit, limit, dayName, start, end, room, originalIndex: index + 1 })
+
+                if (!existingCourseMap.has(name.toLowerCase()) && !missingCoursesData.has(name.toLowerCase())) {
+                    missingCoursesData.set(name.toLowerCase(), {
+                        name,
+                        code: code || '',
+                        credit: parseInt(credit) || 0,
+                        attendance_limit: parseInt(limit) || 0
+                    })
+                }
+            })
+
+            // Create missing courses
+            if (missingCoursesData.size > 0) {
                 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
-                const newCourses = missingCourseNames.map(name => ({
+                const newCourses = Array.from(missingCoursesData.values()).map(c => ({
+                    ...c,
                     user_id: user?.id,
-                    name: name,
                     color: COLORS[Math.floor(Math.random() * COLORS.length)]
                 }))
 
@@ -107,29 +162,18 @@ export default function Schedule() {
                 queryClient.invalidateQueries({ queryKey: ['courses'] })
             }
 
-            // 3. Process schedule entries
+            // Process schedule entries
             const newEntries: any[] = []
-            const errors: string[] = []
+            csvRows.forEach(row => {
+                const courseId = existingCourseMap.get(row.name.toLowerCase())
+                const day = DAYS.find(d => d.aliases.includes(row.dayName.toLowerCase()) || d.name.toLowerCase() === row.dayName.toLowerCase())
 
-            lines.forEach((line, index) => {
-                const parts = line.split(',').map(p => p.trim())
-                if (parts.length < 4) return
-
-                const [courseName, dayName, startTime, endTime, room] = parts
-                const courseId = existingCourseMap.get(courseName.toLowerCase())
-                const day = DAYS.find(d => d.aliases.includes(dayName.toLowerCase()))
-
-                if (!courseId) {
-                    errors.push(`Satır ${index + 1}: '${courseName}' dersi için ID bulunamadı.`)
-                    return
-                }
-
+                if (!courseId) return // Should not happen after step above
                 if (day === undefined) {
-                    errors.push(`Satır ${index + 1}: '${dayName}' geçerli bir gün değil.`)
+                    errors.push(`Satır ${row.originalIndex}: '${row.dayName}' geçerli bir gün değil.`)
                     return
                 }
 
-                // Ensure time is in HH:MM format
                 const formatTime = (t: string) => {
                     const match = t.match(/(\d{1,2})[:.](\d{1,2})/)
                     if (!match) return t
@@ -140,15 +184,11 @@ export default function Schedule() {
                     user_id: user?.id,
                     course_id: courseId,
                     day_of_week: day.id,
-                    start_time: formatTime(startTime),
-                    end_time: formatTime(endTime),
-                    room: room || ''
+                    start_time: formatTime(row.start),
+                    end_time: formatTime(row.end),
+                    room: row.room || ''
                 })
             })
-
-            if (errors.length > 0) {
-                console.warn('CSV Errors:', errors)
-            }
 
             if (newEntries.length > 0) {
                 const { error: scheduleError } = await supabase.from('weekly_schedule').insert(newEntries)
@@ -156,13 +196,13 @@ export default function Schedule() {
                     alert('Ders programı kaydedilirken hata oluştu: ' + scheduleError.message)
                 } else {
                     queryClient.invalidateQueries({ queryKey: ['schedule'] })
-                    alert(`İşlem Başarılı!\n- ${newEntries.length} ders programına eklendi.\n- ${missingCourseNames.length} yeni ders listenize eklendi.`)
+                    const errMsg = errors.length > 0 ? `\n\n⚠️ Atlanan satırlar:\n${errors.slice(0, 5).join('\n')}` : ''
+                    alert(`✅ İşlem tamamlandı!\n• ${newEntries.length} ders programına eklendi\n• ${missingCoursesData.size} yeni ders oluşturuldu${errMsg}`)
                 }
-            } else {
-                alert('Yüklenecek geçerli bir ders programı satırı bulunamadı. Lütfen CSV formatını kontrol edin.')
+            } else if (errors.length > 0) {
+                alert(`❌ Yükleme başarısız.\n\nHatalar:\n${errors.slice(0, 5).join('\n')}`)
             }
             setUploadLoading(false)
-            // Reset input
             e.target.value = ''
         }
 
@@ -398,17 +438,21 @@ export default function Schedule() {
                         ))}
                     </div>
 
-                    {/* Action Buttons - Moved for Schedule tab */}
+                    {/* Action Buttons */}
                     <div className="pt-8 border-t border-gray-100 dark:border-gray-800">
+                        <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest mb-3 text-center">Veri Aktarımı</p>
                         <div className="flex flex-wrap gap-3 justify-center">
+                            {/* Template Download */}
                             <Button
                                 variant="secondary"
-                                onClick={exportScheduleAsCSV}
-                                className="flex-1 md:flex-none border-blue-200 dark:border-blue-800"
+                                onClick={downloadScheduleTemplate}
+                                className="flex-1 md:flex-none border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400"
                             >
                                 <Download className="h-4 w-4 mr-2" />
-                                Programı İndir (Paylaş)
+                                Boş Şablon İndir
                             </Button>
+
+                            {/* CSV Upload */}
                             <label className="flex-1 md:flex-none cursor-pointer">
                                 <input
                                     type="file"
@@ -417,16 +461,31 @@ export default function Schedule() {
                                     onChange={handleCSVUpload}
                                     disabled={uploadLoading}
                                 />
-                                <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors w-full">
+                                <div className="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors w-full">
                                     <Upload className="h-4 w-4 mr-2" />
-                                    {uploadLoading ? 'Yükleniyor...' : 'CSV Yükle'}
+                                    {uploadLoading ? 'Yükleniyor...' : 'Şablon Yükle (.csv)'}
                                 </div>
                             </label>
+
+                            {/* Export Current */}
+                            <Button
+                                variant="secondary"
+                                onClick={exportScheduleAsCSV}
+                                className="flex-1 md:flex-none"
+                            >
+                                <Download className="h-4 w-4 mr-2" />
+                                Mevcut Programı Dışa Aktar
+                            </Button>
+
+                            {/* Add manually */}
                             <Button onClick={() => setIsAdding(true)} className="flex-1 md:flex-none shadow-lg shadow-blue-500/20">
                                 <Plus className="h-5 w-5 mr-2" />
                                 Ders Ekle
                             </Button>
                         </div>
+                        <p className="text-[10px] text-gray-400 text-center mt-3">
+                            💡 Şablonu indir → Excel/Sheets'te doldur → Şablon Yükle butonuyla içe aktar
+                        </p>
                     </div>
                 </div>
             )}

@@ -2,15 +2,16 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui-base'
-import * as Icons from 'lucide-react'
-import { Trophy, ShieldCheck, Lock } from 'lucide-react'
+import { Trophy, ShieldCheck, Lock, Compass, Zap, Activity, GraduationCap, Palette } from 'lucide-react'
+import { getBadgeIcon } from '../lib/badgeIcons'
+import { format, subDays, startOfWeek } from 'date-fns'
 
 const CATEGORIES = [
-    { id: 'onboarding', name: 'Onboarding', icon: Icons.Compass },
-    { id: 'streak', name: 'Zaman ve İstikrar', icon: Icons.Zap },
-    { id: 'habits', name: 'Çalışma Tarzı', icon: Icons.Activity },
-    { id: 'academic', name: 'Akademik Başarı', icon: Icons.GraduationCap },
-    { id: 'social', name: 'Sosyal ve Özel', icon: Icons.Palette }
+    { id: 'onboarding', name: 'Onboarding', icon: Compass },
+    { id: 'streak', name: 'Zaman ve İstikrar', icon: Zap },
+    { id: 'habits', name: 'Çalışma Tarzı', icon: Activity },
+    { id: 'academic', name: 'Akademik Başarı', icon: GraduationCap },
+    { id: 'social', name: 'Sosyal ve Özel', icon: Palette }
 ]
 const GET_CATEGORY = (type: string) => {
     if (['first_course', 'gpa_calc', 'absenteeism_update', 'syllabus_add', 'set_goal', 'profile_complete', 'first_session'].includes(type)) return 'onboarding'
@@ -56,14 +57,23 @@ export default function Badges() {
 
             const sessions = sessionsRes.data || []
             const assignments = assignmentsRes.data || []
-            const days = [...new Set(sessions.map(s => new Date(s.start_time).toDateString()))]
+            const days = [...new Set(sessions.map(s => format(new Date(s.start_time), 'yyyy-MM-dd')))]
             let streak = 0
             if (days.length > 0) {
-                let checkDate = new Date()
-                if (days[0] !== checkDate.toDateString()) checkDate.setDate(checkDate.getDate() - 1)
-                for (const day of days) {
-                    if (day === checkDate.toDateString()) { streak++; checkDate.setDate(checkDate.getDate() - 1) }
-                    else break
+                const today = format(new Date(), 'yyyy-MM-dd')
+                const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+                
+                if (days[0] === today || days[0] === yesterday) {
+                    streak = 1
+                    let checkDate = new Date(days[0])
+                    for (let i = 1; i < days.length; i++) {
+                        const prevDate = subDays(checkDate, 1)
+                        const prevDateStr = format(prevDate, 'yyyy-MM-dd')
+                        if (days[i] === prevDateStr) {
+                            streak++
+                            checkDate = prevDate
+                        } else break
+                    }
                 }
             }
 
@@ -75,9 +85,8 @@ export default function Badges() {
             const weekMap: Record<string, number> = {}
             sessions.forEach(s => {
                 const d = new Date(s.start_time)
-                const weekStart = new Date(d)
-                weekStart.setDate(d.getDate() - d.getDay())
-                const key = weekStart.toISOString().split('T')[0]
+                const weekStartLocal = startOfWeek(d, { weekStartsOn: 1 })
+                const key = format(weekStartLocal, 'yyyy-MM-dd')
                 weekMap[key] = (weekMap[key] || 0) + (s.duration / 3600)
             })
             const maxWeeklyHours = Math.max(0, ...Object.values(weekMap), 0)
@@ -159,7 +168,7 @@ export default function Badges() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {allBadges?.filter((b: any) => GET_CATEGORY(b.criteria_type) === cat.id).map((badge: any) => {
                             const isEarned = earnedBadgeIds.includes(badge.id)
-                            const IconComponent = (Icons as any)[badge.icon] || Icons.Medal
+                            const IconComponent = getBadgeIcon(badge.icon)
                             const progress = calculateProgress(badge)
 
                             return (

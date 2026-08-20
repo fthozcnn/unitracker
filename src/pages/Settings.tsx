@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Save, Download, Upload, Trash2, Moon, Sun, Bell, BellOff } from 'lucide-react'
 import {
-    subscribeToPushNotifications,
-    isPushNotificationSupported,
+    requestNotificationPermission,
+    isNotificationSupported,
     getNotificationPermission,
     sendLocalNotification
 } from '../lib/pushNotifications'
@@ -19,7 +19,7 @@ export default function Settings() {
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
 
     useEffect(() => {
-        const supported = isPushNotificationSupported()
+        const supported = isNotificationSupported()
         setPushSupported(supported)
         getNotificationPermission().then(setNotificationPermission)
     }, [])
@@ -304,10 +304,10 @@ export default function Settings() {
                                     onClick={async () => {
                                         setLoading(true)
                                         try {
-                                            const result = await subscribeToPushNotifications(user?.id || '')
+                                            const result = await requestNotificationPermission()
                                             const perm = await getNotificationPermission()
                                             setNotificationPermission(perm)
-                                            if (result) {
+                                            if (result === 'granted') {
                                                 alert('Bildirimler aktif edildi! 🔔')
                                             } else {
                                                 alert('Bildirim izni verilmedi')

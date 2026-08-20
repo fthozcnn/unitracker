@@ -13,22 +13,15 @@ const EXAM_TYPES = [
     { id: 'proje', label: 'Proje', defaultWeight: 0 },
 ]
 
-function getLetterGrade(avg: number): { letter: string, color: string, bgColor: string } {
-    if (avg >= 90) return { letter: 'AA', color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-900/20' }
-    if (avg >= 85) return { letter: 'BA', color: 'text-green-500', bgColor: 'bg-green-50 dark:bg-green-900/20' }
-    if (avg >= 80) return { letter: 'BB', color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-900/20' }
-    if (avg >= 75) return { letter: 'CB', color: 'text-blue-500', bgColor: 'bg-blue-50 dark:bg-blue-900/20' }
-    if (avg >= 70) return { letter: 'CC', color: 'text-yellow-600', bgColor: 'bg-yellow-50 dark:bg-yellow-900/20' }
-    if (avg >= 65) return { letter: 'DC', color: 'text-orange-500', bgColor: 'bg-orange-50 dark:bg-orange-900/20' }
-    if (avg >= 60) return { letter: 'DD', color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-900/20' }
-    if (avg >= 50) return { letter: 'FD', color: 'text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' }
-    return { letter: 'FF', color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-900/20' }
+function getPassStatus(avg: number, grades: any[]): { status: 'gecer' | 'kalır' | 'belirsiz', label: string, color: string, bgColor: string } {
+    const finalGrade = grades.find(g => g.exam_type === 'final')?.grade
+    if (finalGrade === undefined || finalGrade === null) return { status: 'belirsiz', label: 'Belirsiz', color: 'text-gray-400', bgColor: 'bg-gray-50 dark:bg-gray-900/20' }
+    
+    const isPassed = avg >= 35 && finalGrade >= 35
+    if (isPassed) return { status: 'gecer', label: 'Geçti', color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-900/20' }
+    return { status: 'kalır', label: 'Kaldı', color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-900/20' }
 }
 
-const LETTER_GRADE_POINTS: Record<string, number> = {
-    'AA': 4.0, 'BA': 3.5, 'BB': 3.0, 'CB': 2.5,
-    'CC': 2.0, 'DC': 1.5, 'DD': 1.0, 'FD': 0.5, 'FF': 0
-}
 
 type Course = {
     id: string
@@ -265,13 +258,16 @@ export default function Grades() {
     }
 
     // Min final grade to pass
-    const getMinFinalGrade = (): number | null => {
+    const getMinFinalGrade = (): { minGrade: number, type: 'success' | 'warning' | 'danger' | 'impossible' } | null => {
         const finalWeight = parseFloat(gradeInputs['final']?.weight || '0')
         if (finalWeight <= 0) return null
+
+        const enteredGrades = Object.entries(gradeInputs).filter(([key, v]) => key !== 'final' && v.grade !== '')
+        if (enteredGrades.length === 0) return null
+
         let otherWeightedScore = 0
         let otherWeight = 0
-        Object.entries(gradeInputs).forEach(([key, v]) => {
-            if (key === 'final') return
+        enteredGrades.forEach(([_, v]) => {
             const grade = parseFloat(v.grade)
             const weight = parseFloat(v.weight)
             if (!isNaN(grade) && !isNaN(weight) && weight > 0) {
@@ -279,32 +275,49 @@ export default function Grades() {
                 otherWeight += weight
             }
         })
+
         const totalWeight = otherWeight + finalWeight
-        const needed = (60 * totalWeight - otherWeightedScore) / finalWeight
-        return Math.max(0, Math.ceil(needed))
+        // Need: (otherWeightedScore + finalGrade * finalWeight) / totalWeight >= 35
+        const neededForAvg = (35 * totalWeight - otherWeightedScore) / finalWeight
+        const minGrade = Math.max(35, Math.ceil(neededForAvg))
+
+        if (minGrade > 100) return { minGrade, type: 'impossible' }
+        if (minGrade > 35) return { minGrade, type: 'warning' }
+        
+        // Check if the only grade entered is >= 35
+        const allEnteredGradesAbove35 = enteredGrades.every(([_, v]) => parseFloat(v.grade) >= 35)
+        if (allEnteredGradesAbove35) return { minGrade, type: 'success' }
+        
+        return { minGrade, type: 'warning' }
     }
 
-    // Calculate GPA across all courses
-    const calculateGPA = (): { gpa: number, totalCredits: number } => {
-        if (!courses || !allGrades) return { gpa: 0, totalCredits: 0 }
-        let totalPoints = 0
+
+    // Calculate stats across all courses
+    const calculateStats = (): { totalCredits: number, passedCount: number, failedCount: number } => {
+        if (!courses || !allGrades) return { totalCredits: 0, passedCount: 0, failedCount: 0 }
         let totalCredits = 0
+        let passedCount = 0
+        let failedCount = 0
+        
         courses.forEach(course => {
+            const courseGrades = allGrades.filter((g: any) => g.course_id === course.id)
             const { avg, hasGrades } = getCourseAverage(course.id)
             if (hasGrades) {
-                const letterGrade = getLetterGrade(avg)
-                const points = LETTER_GRADE_POINTS[letterGrade.letter] || 0
-                totalPoints += points * course.credit
+                const status = getPassStatus(avg, courseGrades)
+                if (status.status === 'gecer') passedCount++
+                else if (status.status === 'kalır') failedCount++
                 totalCredits += course.credit
             }
         })
-        if (totalCredits === 0) return { gpa: 0, totalCredits: 0 }
-        return { gpa: totalPoints / totalCredits, totalCredits }
+        return { totalCredits, passedCount, failedCount }
     }
 
-    const { gpa, totalCredits } = calculateGPA()
-    const selectedAvg = getSelectedAverage()
-    const selectedLetterGrade = selectedAvg.totalWeight > 0 ? getLetterGrade(selectedAvg.avg) : null
+    const { totalCredits, passedCount } = calculateStats()
+    const selectedAverageData = getSelectedAverage()
+    const selectedPassStatus = selectedAverageData.totalWeight > 0 
+        ? getPassStatus(selectedAverageData.avg, Object.entries(gradeInputs).map(([k, v]) => ({ exam_type: k, grade: v.grade !== '' ? parseFloat(v.grade) : null }))) 
+        : null
+
     const minFinal = getMinFinalGrade()
 
     return (
@@ -320,21 +333,30 @@ export default function Grades() {
                 </div>
             </div>
 
-            {/* GPA Summary */}
+            {/* Stats Summary */}
             {totalCredits > 0 && (
-                <Card className="p-5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-purple-100 text-xs font-bold uppercase tracking-wider">Genel Not Ortalaması (GPA)</p>
-                            <p className="text-4xl font-black mt-1">{gpa.toFixed(2)} <span className="text-lg font-normal text-purple-200">/ 4.00</span></p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="p-5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-0">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-emerald-100 text-xs font-bold uppercase tracking-wider">Geçilen Dersler</p>
+                                <p className="text-4xl font-black mt-1">{passedCount} <span className="text-lg font-normal text-emerald-200">Ders</span></p>
+                            </div>
+                            <CheckCircle className="h-10 w-10 text-emerald-200/50" />
                         </div>
-                        <div className="text-right">
-                            <TrendingUp className="h-8 w-8 text-purple-200 mb-1" />
-                            <p className="text-xs text-purple-200">{totalCredits} Kredi</p>
+                    </Card>
+                    <Card className="p-5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-0">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-purple-100 text-xs font-bold uppercase tracking-wider">Toplam Kredi</p>
+                                <p className="text-4xl font-black mt-1">{totalCredits} <span className="text-lg font-normal text-purple-200">Kredi</span></p>
+                            </div>
+                            <TrendingUp className="h-10 w-10 text-purple-200/50" />
                         </div>
-                    </div>
-                </Card>
+                    </Card>
+                </div>
             )}
+
 
             {/* Incoming Course Shares */}
             {incomingCourseShares.length > 0 && (
@@ -371,8 +393,6 @@ export default function Grades() {
             {/* Course Grid - Overview */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {courses?.map(course => {
-                    const { avg, hasGrades } = getCourseAverage(course.id)
-                    const letterGrade = hasGrades ? getLetterGrade(avg) : null
                     const isSelected = selectedCourse === course.id
 
                     return (
@@ -389,14 +409,54 @@ export default function Grades() {
                                     <span className="text-xs font-bold text-gray-400">{course.code}</span>
                                 </div>
                                 <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{course.name}</p>
-                                {letterGrade ? (
-                                    <div className="flex items-baseline gap-1 mt-2">
-                                        <span className={`text-xl font-black ${letterGrade.color}`}>{letterGrade.letter}</span>
-                                        <span className="text-xs text-gray-400">{avg.toFixed(1)}</span>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-gray-400 mt-2 italic">Not girilmemiş</p>
-                                )}
+                                {(() => {
+                                    const courseGrades = allGrades?.filter((g: any) => g.course_id === course.id) || []
+                                    const finalGrade = courseGrades.find((g: any) => g.exam_type === 'final' && g.grade !== null && g.grade !== undefined)
+                                    const otherGrades = courseGrades.filter((g: any) => g.exam_type !== 'final' && g.grade !== null && g.grade !== undefined)
+                                    
+                                    if (finalGrade) {
+                                        // Final exists, show Pass/Fail
+                                        const { avg } = getCourseAverage(course.id)
+                                        const status = getPassStatus(avg, courseGrades)
+                                        return (
+                                            <div className="flex items-baseline gap-2 mt-2">
+                                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${status.bgColor} ${status.color}`}>
+                                                    {status.label}
+                                                </span>
+                                                <span className="text-xs text-gray-400">{avg.toFixed(1)}</span>
+                                            </div>
+                                        )
+                                    }
+
+                                    if (otherGrades.length > 0) {
+                                        // No final, but has some other grades
+                                        let otherWeightedScore = 0
+                                        let otherWeight = 0
+                                        otherGrades.forEach(g => {
+                                            otherWeightedScore += g.grade * (g.weight || 0)
+                                            otherWeight += (g.weight || 0)
+                                        })
+                                        
+                                        // Use 50 as default final weight if not specified
+                                        const finalWeight = 50 
+                                        const totalWeight = otherWeight + finalWeight
+                                        const needed = Math.max(35, Math.ceil((35 * totalWeight - otherWeightedScore) / finalWeight))
+                                        
+                                        return (
+                                            <div className="flex flex-col gap-0.5 mt-2">
+                                                <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-tight">Final Gerekli</p>
+                                                <p className="text-sm font-black text-gray-900 dark:text-white">{needed}+</p>
+                                            </div>
+                                        )
+                                    }
+
+                                    return <p className="text-xs text-gray-400 mt-2 italic">Not girilmemiş</p>
+                                })()}
+
+
+
+
+
                             </button>
                             {/* Share button overlay */}
                             <button
@@ -419,12 +479,15 @@ export default function Grades() {
                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: courses.find(c => c.id === selectedCourse)?.color }} />
                             {courses.find(c => c.id === selectedCourse)?.name}
                         </h3>
-                        {selectedLetterGrade && (
+                        {selectedPassStatus && selectedPassStatus.status !== 'belirsiz' && (
                             <div className="text-right">
-                                <span className={`text-3xl font-black ${selectedLetterGrade.color}`}>{selectedLetterGrade.letter}</span>
-                                <p className="text-[10px] text-gray-400 font-bold">{selectedAvg.avg.toFixed(1)} puan</p>
+                                <span className={`text-xl font-black uppercase px-3 py-1 rounded-lg ${selectedPassStatus.bgColor} ${selectedPassStatus.color}`}>
+                                    {selectedPassStatus.label}
+                                </span>
+                                <p className="text-[10px] text-gray-400 font-bold mt-1">{selectedAverageData.avg.toFixed(1)} puan</p>
                             </div>
                         )}
+
                     </div>
 
                     {/* Grade Inputs */}
@@ -479,17 +542,21 @@ export default function Grades() {
                     </div>
 
                     {/* Min Final Helper */}
-                    {minFinal !== null && gradeInputs['vize']?.grade && (
-                        <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${minFinal > 100 ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
-                            minFinal > 70 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
+                    {minFinal && !gradeInputs['final']?.grade && (
+                        <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${minFinal.type === 'impossible' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
+                            minFinal.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
                                 'bg-green-50 dark:bg-green-900/20 text-green-600'
                             }`}>
-                            {minFinal > 100
-                                ? '❌ DD almak için bile finalden 100 üzeri almanız gerekiyor.'
-                                : `📝 Geçmek (DD) için finalden en az ${minFinal} almanız gerekiyor.`
+                            {minFinal.type === 'impossible'
+                                ? '❌ Ortalamanın 35 olması için finalden 100 üzeri almanız gerekiyor, geçmeniz imkansız görünüyor.'
+                                : minFinal.type === 'warning'
+                                    ? `⚠️ Ortalamanın 35 olması için finalden en az ${minFinal.minGrade} almanız gerekiyor.`
+                                    : `📝 Geçmek için finalden en az 35 almanız yeterli.`
                             }
                         </div>
                     )}
+
+
 
                     <div className="flex gap-2 mt-4">
                         <Button

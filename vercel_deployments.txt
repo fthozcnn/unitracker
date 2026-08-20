@@ -1,0 +1,47 @@
+Retrieving projectÔÇĞ
+Fetching deployments in mehmetfthozcan-9720s-projects
+> Deployments for mehmetfthozcan-9720s-projects/unitracker [278ms]
+https://unitracker-3q0ie49cb-mehmetfthozcan-9720s-projects.vercel.app
+
+https://unitracker-6f659i6ml-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-epp0mhzs2-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-28yfk5k53-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-bbxod1jep-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-qlszb1zj3-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-35qxrexeo-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-a454o7l1h-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-4s3zwxxtd-mehmetfthozcan-9720s-projects.vercel.app
+  Age     Project                                      Deployment                                                                Status      Environment     Duration     Username                
+https://unitracker-pgq8capuz-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-mqinoli3n-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-92xuauhtp-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-6j67xp0ub-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-fv7y1na6c-mehmetfthozcan-9720s-projects.vercel.app
+  3m      mehmetfthozcan-9720s-projects/unitracker     https://unitracker-3q0ie49cb-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      22s          mehmetfthozcan-9720     
+  10m     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-6f659i6ml-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      19s          mehmetfthozcan-9720     
+  21m     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-epp0mhzs2-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      19s          mehmetfthozcan-9720     
+  1h      mehmetfthozcan-9720s-projects/unitracker     https://unitracker-28yfk5k53-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      24s          mehmetfthozcan-9720     
+https://unitracker-liuwal3u8-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-qeusbxcqf-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-9rvw699qz-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-66ndpent5-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-2sdd4hgbo-mehmetfthozcan-9720s-projects.vercel.app
+https://unitracker-fymhhoovd-mehmetfthozcan-9720s-projects.vercel.app
+  2h      mehmetfthozcan-9720s-projects/unitracker     https://unitracker-bbxod1jep-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      33s          mehmetfthozcan-9720     
+  36d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-qlszb1zj3-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      29s          mehmetfthozcan-9720     
+  37d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-35qxrexeo-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      21s          mehmetfthozcan-9720     
+  37d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-a454o7l1h-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      20s          mehmetfthozcan-9720     
+  37d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-4s3zwxxtd-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      19s          mehmetfthozcan-9720     
+  38d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-pgq8capuz-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      20s          mehmetfthozcan-9720     
+  39d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-mqinoli3n-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      20s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-92xuauhtp-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      28s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-6j67xp0ub-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      23s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-fv7y1na6c-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      22s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-liuwal3u8-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      20s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-qeusbxcqf-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      20s          mehmetfthozcan-9720     
+  40d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-9rvw699qz-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      19s          mehmetfthozcan-9720     
+  41d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-66ndpent5-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      19s          mehmetfthozcan-9720     
+  41d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-2sdd4hgbo-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      21s          mehmetfthozcan-9720     
+  41d     mehmetfthozcan-9720s-projects/unitracker     https://unitracker-fymhhoovd-mehmetfthozcan-9720s-projects.vercel.app     ÔùÅ Ready     Production      21s          mehmetfthozcan-9720     
+
+> To display the next page, run `vercel ls --next 1771827779072`

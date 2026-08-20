@@ -1,0 +1,92 @@
+Retrieving projectÔÇĞ
+Deploying mehmetfthozcan-9720s-projects/unitracker
+Uploading [--------------------] (0.0B/1.3MB)
+Uploading [=====---------------] (340.5KB/1.3MB)
+Uploading [==========----------] (657.8KB/1.3MB)
+Uploading [===============-----] (977.8KB/1.3MB)
+Uploading [====================] (1.3MB/1.3MB)
+Inspect: https://vercel.com/mehmetfthozcan-9720s-projects/unitracker/7YRsGCF59tJwz8m16PVUngSjK442 [5s]
+Production: https://unitracker-avco8wkqj-mehmetfthozcan-9720s-projects.vercel.app [5s]
+Building...
+Building...
+Building: Running build in Washington, D.C., USA (East) ÔÇô iad1
+Building: Build machine configuration: 2 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Downloading 1035 deployment files...
+Building: Restored build cache from previous deployment (BrwbTs7EMAWqtvMwev9sFC1bANJ8)
+Building: Running "vercel build"
+Building: Vercel CLI 50.38.2
+Building: Installing dependencies...
+Building: up to date in 989ms
+Building: 61 packages are looking for funding
+Building: run `npm fund` for details
+Building: Running "npm run build"
+Building: > ders-takibi@0.0.0 build
+Building: > vite build
+Building: vite v7.3.1 building client environment for production...
+Building: transforming...
+Building: Ô£ô 3514 modules transformed.
+Building: rendering chunks...
+Building: computing gzip size...
+Building: dist/index.html                             0.81 kB Ôöé gzip:   0.45 kB
+Building: dist/assets/index-CLf9U_FT.css            105.52 kB Ôöé gzip:  15.19 kB
+Building: dist/assets/minus-BasuSHiT.js               0.12 kB Ôöé gzip:   0.13 kB
+Building: dist/assets/circle-Bey4kxTN.js              0.13 kB Ôöé gzip:   0.13 kB
+Building: dist/assets/plus-CkBB3AsM.js                0.15 kB Ôöé gzip:   0.15 kB
+Building: dist/assets/clock-Bs6NINA4.js               0.17 kB Ôöé gzip:   0.17 kB
+Building: dist/assets/formatters-BRqtH6mL.js          0.18 kB Ôöé gzip:   0.15 kB
+Building: dist/assets/trending-up-BhZsj_9f.js         0.18 kB Ôöé gzip:   0.17 kB
+Building: dist/assets/circle-check-big-h3WOsN6G.js    0.19 kB Ôöé gzip:   0.18 kB
+Building: dist/assets/subDays-I8nfmO3I.js             0.19 kB Ôöé gzip:   0.17 kB
+Building: dist/assets/activity-BVi6a5qr.js            0.24 kB Ôöé gzip:   0.20 kB
+Building: dist/assets/pen-3MLg25IE.js                 0.24 kB Ôöé gzip:   0.20 kB
+Building: dist/assets/map-pin-BLxWYeN_.js             0.26 kB Ôöé gzip:   0.22 kB
+Building: dist/assets/zap-BclKVpaI.js                 0.26 kB Ôöé gzip:   0.21 kB
+Building: dist/assets/book-open-Be5rwlhT.js           0.28 kB Ôöé gzip:   0.21 kB
+Building: dist/assets/endOfWeek-KxBsZe4M.js           0.30 kB Ôöé gzip:   0.22 kB
+Building: dist/assets/coffee-BSQXZcSt.js              0.31 kB Ôöé gzip:   0.21 kB
+Building: dist/assets/save-WkakQ85x.js                0.33 kB Ôöé gzip:   0.23 kB
+Building: dist/assets/circle-check-RkLlAgOJ.js        0.34 kB Ôöé gzip:   0.24 kB
+Building: dist/assets/upload-Dklo0M1o.js              0.42 kB Ôöé gzip:   0.25 kB
+Building: dist/assets/differenceInDays--4ArRIT4.js    0.47 kB Ôöé gzip:   0.28 kB
+Building: dist/assets/share-2-r_p8vm-Z.js             0.59 kB Ôöé gzip:   0.36 kB
+Building: dist/assets/subMonths-otkE3o7F.js           0.64 kB Ôöé gzip:   0.38 kB
+Building: dist/assets/sun-BCHyakIv.js                 0.64 kB Ôöé gzip:   0.35 kB
+Building: dist/assets/music-Dujcq2Yu.js               0.75 kB Ôöé gzip:   0.39 kB
+Building: dist/assets/target-BFvBhM_W.js              0.94 kB Ôöé gzip:   0.46 kB
+Building: dist/assets/with-selector-DeWS_fny.js       0.97 kB Ôöé gzip:   0.54 kB
+Building: dist/assets/xpSystem-Dc2YjQfg.js            1.81 kB Ôöé gzip:   0.99 kB
+Building: dist/assets/EmptyState-DLtqwbHn.js          2.20 kB Ôöé gzip:   0.91 kB
+Building: dist/assets/web-D9rVwj1X.js                 3.45 kB Ôöé gzip:   1.11 kB
+Building: dist/assets/badgeIcons-BV9d_oMj.js          5.13 kB Ôöé gzip:   2.25 kB
+Building: dist/assets/Attendance-DLGmDKFz.js          5.77 kB Ôöé gzip:   1.88 kB
+Building: dist/assets/Badges-BdXXasP6.js              7.88 kB Ôöé gzip:   2.86 kB
+Building: dist/assets/Settings-DxN-UrLp.js           10.55 kB Ôöé gzip:   3.83 kB
+Building: dist/assets/CourseDetail-Dy7gCuFz.js       10.56 kB Ôöé gzip:   3.66 kB
+Building: dist/assets/confetti-Cd-W1ocD.js           11.33 kB Ôöé gzip:   4.48 kB
+Building: dist/assets/Grades-Cdd0E3J2.js             17.27 kB Ôöé gzip:   4.96 kB
+Building: dist/assets/Calendar-CIwe7jNb.js           31.15 kB Ôöé gzip:   8.88 kB
+Building: dist/assets/Study-B8JiMKK8.js              34.74 kB Ôöé gzip:  10.61 kB
+Building: dist/assets/dialog-BLqEQvnu.js             44.34 kB Ôöé gzip:  15.76 kB
+Building: dist/assets/Dashboard-CIN4d0y6.js          46.14 kB Ôöé gzip:  12.30 kB
+Building: dist/assets/Social-lGsZy0vq.js             47.02 kB Ôöé gzip:  11.91 kB
+Building: dist/assets/Schedule-Ol72fWvg.js           83.51 kB Ôöé gzip:  28.40 kB
+Building: dist/assets/Analytics-DVeflCKO.js         385.69 kB Ôöé gzip: 113.72 kB
+Building: dist/assets/index-BjSGukzu.js             532.32 kB Ôöé gzip: 159.70 kB
+Building: (!) Some chunks are larger than 500 kB after minification. Consider:
+Building: - Using dynamic import() to code-split the application
+Building: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+Building: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+Building: Ô£ô built in 9.99s
+Building: Build Completed in /vercel/output [12s]
+Building: Deploying outputs...
+Building: Deployment completed
+Building: Creating build cache...
+[2K[1A[2K[GProduction: https://unitracker-avco8wkqj-mehmetfthozcan-9720s-projects.vercel.app [32s]
+Completing...
+Aliased: https://unimarmara.vercel.app [32s]
+
+Common next commands:
+- `vercel inspect unitracker-avco8wkqj-mehmetfthozcan-9720s-projects.vercel.app --logs`
+- `vercel redeploy unitracker-avco8wkqj-mehmetfthozcan-9720s-projects.vercel.app`
+https://unitracker-avco8wkqj-mehmetfthozcan-9720s-projects.vercel.app

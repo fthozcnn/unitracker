@@ -25,4 +25,14 @@ export default {
         },
     },
     plugins: [],
+    safelist: [
+        {
+            pattern: /(bg|text|border)-(blue|green|red|orange|purple|pink|amber|emerald|indigo|slate)-(50|100|200|300|400|500|600|700|800|900|950)/,
+            variants: ['dark', 'hover', 'dark:hover'],
+        },
+        {
+            pattern: /(bg|text|border)-(blue|green|red|orange|purple|pink|amber|emerald|indigo|slate)-(50|100|200|300|400|500|600|700|800|900|950)\/(10|20|30|40|50)/,
+            variants: ['dark', 'hover', 'dark:hover'],
+        },
+    ],
 }

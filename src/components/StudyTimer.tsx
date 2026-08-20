@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addXP, updatePresence, XP_REWARDS } from '../lib/xpSystem'
 import { sendPomodoroNotification, sendStudyCompleteNotification } from '../lib/pushNotifications'
 import { triggerSuccessConfetti } from '../lib/confetti'
+import { formatTime } from '../lib/formatters'
 
 type TimerMode = 'stopwatch' | 'pomodoro'
 
@@ -195,12 +196,7 @@ export default function StudyTimer() {
         }
     }
 
-    const formatTime = (totalSeconds: number) => {
-        const h = Math.floor(totalSeconds / 3600)
-        const m = Math.floor((totalSeconds % 3600) / 60)
-        const s = totalSeconds % 60
-        return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} `
-    }
+    // formatTime imported from '../lib/formatters'
 
     const updateSetting = (key: keyof PomodoroSettings, value: string) => {
         const num = parseInt(value) || 1

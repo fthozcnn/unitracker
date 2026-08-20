@@ -261,34 +261,57 @@ export default function Social() {
         queryKey: ['challenge_progress', allChallenges?.length],
         queryFn: async () => {
             if (!allChallenges || allChallenges.length === 0) return {}
-            const progress: Record<string, number> = {}
+
+            // F1: Batch query — collect all user IDs and find global date range
+            const allUserIds = new Set<string>()
+            let minDate = ''
+            let maxDate = ''
+
             for (const challenge of allChallenges) {
                 if (challenge.is_group) {
-                    const participantIds = challenge.challenge_participants?.map((p: any) => p.user_id) || []
-                    if (participantIds.length === 0) {
-                        progress[challenge.id] = 0
-                        continue
-                    }
-                    const { data } = await supabase
-                        .from('study_sessions')
-                        .select('duration')
-                        .in('user_id', participantIds)
-                        .gte('start_time', challenge.start_date)
-                        .lte('start_time', challenge.end_date)
-                    const totalMinutes = data?.reduce((sum, s) => sum + s.duration, 0) || 0
-                    progress[challenge.id] = Math.round(totalMinutes / 60)
+                    challenge.challenge_participants?.forEach((p: any) => allUserIds.add(p.user_id))
                 } else {
-                    const isParticipating = challenge.challenge_participants?.some((p: any) => p.user_id === user?.id)
-                    if (!isParticipating) continue
-                    const { data } = await supabase
-                        .from('study_sessions')
-                        .select('duration')
-                        .eq('user_id', user?.id)
-                        .gte('start_time', challenge.start_date)
-                        .lte('start_time', challenge.end_date)
-                    const totalMinutes = data?.reduce((sum, s) => sum + s.duration, 0) || 0
-                    progress[challenge.id] = Math.round(totalMinutes / 60)
+                    if (challenge.challenge_participants?.some((p: any) => p.user_id === user?.id)) {
+                        allUserIds.add(user!.id)
+                    }
                 }
+                if (!minDate || challenge.start_date < minDate) minDate = challenge.start_date
+                if (!maxDate || challenge.end_date > maxDate) maxDate = challenge.end_date
+            }
+
+            if (allUserIds.size === 0 || !minDate || !maxDate) return {}
+
+            // Single batched query for ALL sessions across ALL challenges
+            const { data: allSessions } = await supabase
+                .from('study_sessions')
+                .select('user_id, duration, start_time')
+                .in('user_id', Array.from(allUserIds))
+                .gte('start_time', minDate)
+                .lte('start_time', maxDate)
+
+            const sessions = allSessions || []
+
+            // Group results by challenge
+            const progress: Record<string, number> = {}
+            for (const challenge of allChallenges) {
+                const participantIds = challenge.is_group
+                    ? (challenge.challenge_participants?.map((p: any) => p.user_id) || [])
+                    : (challenge.challenge_participants?.some((p: any) => p.user_id === user?.id) ? [user!.id] : [])
+
+                if (participantIds.length === 0) {
+                    progress[challenge.id] = 0
+                    continue
+                }
+
+                const totalMinutes = sessions
+                    .filter(s =>
+                        participantIds.includes(s.user_id) &&
+                        s.start_time >= challenge.start_date &&
+                        s.start_time <= challenge.end_date
+                    )
+                    .reduce((sum, s) => sum + s.duration, 0)
+
+                progress[challenge.id] = Math.round(totalMinutes / 60)
             }
             return progress
         },
@@ -799,7 +822,9 @@ export default function Social() {
                                 const status = getChallengeStatus(challenge)
                                 const currentHours = challengeProgress?.[challenge.id] || 0
                                 const progress = Math.min((currentHours / challenge.target_hours) * 100, 100)
-                                const daysLeft = differenceInDays(new Date(challenge.end_date), new Date())
+                                const date1 = new Date(challenge.end_date); date1.setHours(0,0,0,0);
+                                const date2 = new Date(); date2.setHours(0,0,0,0);
+                                const daysLeft = differenceInDays(date1, date2)
 
                                 return (
                                     <Card key={challenge.id} className="p-6 hover:shadow-lg transition-all group relative overflow-hidden">

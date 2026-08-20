@@ -14,17 +14,15 @@ const EXAM_TYPES = [
     { id: 'proje', label: 'Proje', defaultWeight: 0 },
 ]
 
-function getLetterGrade(avg: number): { letter: string, color: string } {
-    if (avg >= 90) return { letter: 'AA', color: 'text-green-600' }
-    if (avg >= 85) return { letter: 'BA', color: 'text-green-500' }
-    if (avg >= 80) return { letter: 'BB', color: 'text-blue-600' }
-    if (avg >= 75) return { letter: 'CB', color: 'text-blue-500' }
-    if (avg >= 70) return { letter: 'CC', color: 'text-yellow-600' }
-    if (avg >= 65) return { letter: 'DC', color: 'text-orange-500' }
-    if (avg >= 60) return { letter: 'DD', color: 'text-orange-600' }
-    if (avg >= 50) return { letter: 'FD', color: 'text-red-400' }
-    return { letter: 'FF', color: 'text-red-600' }
+function getPassStatus(avg: number, grades: any[]): { status: 'gecer' | 'kalır' | 'belirsiz', label: string, color: string, bgColor: string } {
+    const finalGrade = grades.find(g => g.exam_type === 'final')?.grade
+    if (finalGrade === undefined || finalGrade === null) return { status: 'belirsiz', label: 'Belirsiz', color: 'text-gray-400', bgColor: 'bg-gray-50 dark:bg-gray-900/20' }
+    
+    const isPassed = avg >= 35 && finalGrade >= 35
+    if (isPassed) return { status: 'gecer', label: 'Geçti', color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-900/20' }
+    return { status: 'kalır', label: 'Kaldı', color: 'text-red-600', bgColor: 'bg-red-50 dark:bg-red-900/20' }
 }
+
 
 type SyllabusItem = {
     week: number
@@ -43,11 +41,7 @@ type Course = {
     absent_count: number
 }
 
-type GradeEntry = {
-    exam_type: string
-    grade: number | null
-    weight: number
-}
+
 
 export default function CourseDetail() {
     const { id } = useParams()
@@ -206,15 +200,17 @@ export default function CourseDetail() {
         return { avg: totalWeightedScore / totalWeight, totalWeight }
     }
 
-    // Calculate minimum final grade to pass (CC = 70)
-    const getMinFinalGrade = (): number | null => {
+    // Min final grade to pass
+    const getMinFinalGrade = (): { minGrade: number, type: 'success' | 'warning' | 'danger' | 'impossible' } | null => {
         const finalWeight = parseFloat(gradeInputs['final']?.weight || '0')
         if (finalWeight <= 0) return null
 
+        const enteredGrades = Object.entries(gradeInputs).filter(([key, v]) => key !== 'final' && v.grade !== '')
+        if (enteredGrades.length === 0) return null
+
         let otherWeightedScore = 0
         let otherWeight = 0
-        Object.entries(gradeInputs).forEach(([key, v]) => {
-            if (key === 'final') return
+        enteredGrades.forEach(([_, v]) => {
             const grade = parseFloat(v.grade)
             const weight = parseFloat(v.weight)
             if (!isNaN(grade) && !isNaN(weight) && weight > 0) {
@@ -222,17 +218,25 @@ export default function CourseDetail() {
                 otherWeight += weight
             }
         })
-        // Need: (otherWeightedScore + finalGrade * finalWeight) / (otherWeight + finalWeight) >= 60
+
         const totalWeight = otherWeight + finalWeight
-        const needed = (60 * totalWeight - otherWeightedScore) / finalWeight
-        return Math.max(0, Math.ceil(needed))
+        const neededForAvg = (35 * totalWeight - otherWeightedScore) / finalWeight
+        const minGrade = Math.max(35, Math.ceil(neededForAvg))
+
+        if (minGrade > 100) return { minGrade, type: 'impossible' }
+        if (minGrade > 35) return { minGrade, type: 'warning' }
+        
+        const allEnteredGradesAbove35 = enteredGrades.every(([_, v]) => parseFloat(v.grade) >= 35)
+        if (allEnteredGradesAbove35) return { minGrade, type: 'success' }
+        
+        return { minGrade, type: 'warning' }
     }
+
 
     if (isLoading) return <div className="p-8">Yükleniyor...</div>
     if (error || !course) return <div className="p-8">Ders bulunamadı.</div>
 
     const { avg, totalWeight } = calculateAverage()
-    const letterGrade = getLetterGrade(avg)
     const minFinal = getMinFinalGrade()
 
     return (
@@ -314,10 +318,19 @@ export default function CourseDetail() {
                         </h3>
                         {totalWeight > 0 && (
                             <div className="text-right">
-                                <span className={`text-2xl font-black ${letterGrade.color}`}>{letterGrade.letter}</span>
-                                <p className="text-[10px] text-gray-400 font-bold">{avg.toFixed(1)} puan</p>
+                                {(() => {
+                                    const status = getPassStatus(avg, Object.entries(gradeInputs).map(([k, v]) => ({ exam_type: k, grade: v.grade !== '' ? parseFloat(v.grade) : null })))
+                                    if (status.status === 'belirsiz') return null
+                                    return (
+                                        <span className={`text-xl font-black uppercase px-3 py-1 rounded-lg ${status.bgColor} ${status.color}`}>
+                                            {status.label}
+                                        </span>
+                                    )
+                                })()}
+                                <p className="text-[10px] text-gray-400 font-bold mt-1">{avg.toFixed(1)} puan</p>
                             </div>
                         )}
+
                     </div>
 
                     <div className="space-y-3">
@@ -355,20 +368,21 @@ export default function CourseDetail() {
                                 </div>
                             )
                         })}
+                        {/* Min Final Helper */}
+                        {minFinal && !gradeInputs['final']?.grade && (
+                            <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${minFinal.type === 'impossible' ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
+                                minFinal.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
+                                    'bg-green-50 dark:bg-green-900/20 text-green-600'
+                                }`}>
+                                {minFinal.type === 'impossible'
+                                    ? '❌ Ortalamanın 35 olması için finalden 100 üzeri almanız gerekiyor, geçmeniz imkansız görünüyor.'
+                                    : minFinal.type === 'warning'
+                                        ? `⚠️ Ortalamanın 35 olması için finalden en az ${minFinal.minGrade} almanız gerekiyor.`
+                                        : `📝 Geçmek için finalden en az 35 almanız yeterli.`
+                                }
+                            </div>
+                        )}
                     </div>
-
-                    {/* Min Final Grade Helper */}
-                    {minFinal !== null && gradeInputs['vize']?.grade && (
-                        <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${minFinal > 100 ? 'bg-red-50 dark:bg-red-900/20 text-red-600' :
-                            minFinal > 70 ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-600' :
-                                'bg-green-50 dark:bg-green-900/20 text-green-600'
-                            }`}>
-                            {minFinal > 100
-                                ? '❌ DD almak için bile finalden 100 üzeri almanız gerekiyor.'
-                                : `📝 Geçmek (DD) için finalden en az ${minFinal} almanız gerekiyor.`
-                            }
-                        </div>
-                    )}
 
                     <Button
                         className="w-full mt-4"

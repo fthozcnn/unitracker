@@ -6,7 +6,8 @@ import { Card, Button, Input } from './ui-base'
 import { Swords, Clock, X, Check, Coffee, Flag, Zap, Wifi, WifiOff, Send } from 'lucide-react'
 import clsx from 'clsx'
 import { triggerSuccessConfetti } from '../lib/confetti'
-import { addXP, XP_REWARDS } from '../lib/xpSystem'
+// XP awarded via supabase.rpc('award_duel_xp') in handleGameOver
+import { formatTime } from '../lib/formatters'
 
 type Duel = {
     id: string
@@ -22,12 +23,7 @@ type Duel = {
     opponent_name?: string
 }
 
-function formatTime(seconds: number) {
-    const h = Math.floor(seconds / 3600)
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
-    const s = (seconds % 60).toString().padStart(2, '0')
-    return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`
-}
+// formatTime imported from '../lib/formatters'
 
 const REACTIONS = ['👊', '💪', '😤', '🔥', '😂', '😴']
 
@@ -239,7 +235,7 @@ function ActiveDuel({ duel, onFinished }: { duel: Duel; onFinished: () => void }
     }
 
     const approveBreak = () => {
-        const breakUntil = new Date(Date.now() + parseInt(breakMinutes || '5') * 60000)
+        // F20: removed unused breakUntil variable
         // Use the requested minutes from incomingBreak
         const until = new Date(Date.now() + (incomingBreak?.minutes || 5) * 60000)
         channelRef.current?.send({
@@ -526,7 +522,7 @@ export default function StudyDuel({ friends }: StudyDuelProps) {
             if (error) throw error
             return (data || []).map(enrichDuel)
         },
-        refetchInterval: 10000,
+        refetchInterval: 30000,  // F18: reduced from 10s to 30s (active duels use Realtime)
     })
 
     const pendingReceived = duels.filter(d => d.status === 'pending' && d.opponent_id === user?.id)

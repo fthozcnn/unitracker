@@ -29,12 +29,24 @@ export function levelProgress(xp: number): number {
     return Math.min(100, ((xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100)
 }
 
-// Add XP to user profile
+// Add XP to user profile (F16: atomic server-side increment, client fallback)
 export async function addXP(userId: string, amount: number): Promise<{ newXP: number, newLevel: number, leveledUp: boolean } | null> {
     if (!userId || amount <= 0) return null
 
     try {
-        // Get current XP
+        // Try atomic RPC first (no race condition)
+        const { data: rpcData, error: rpcError } = await supabase
+            .rpc('add_user_xp', { uid: userId, xp_amount: amount })
+
+        if (!rpcError && rpcData) {
+            const newXP = rpcData.new_xp ?? 0
+            const newLevel = rpcData.new_level ?? calculateLevel(newXP)
+            const leveledUp = rpcData.leveled_up ?? false
+            console.log(`✅ XP awarded (RPC): +${amount} → Total: ${newXP} (Level ${newLevel})`)
+            return { newXP, newLevel, leveledUp }
+        }
+
+        // Fallback: client-side read-then-write (if RPC doesn't exist yet)
         const { data: profile, error: fetchError } = await supabase
             .from('profiles')
             .select('total_xp, level')
@@ -53,7 +65,6 @@ export async function addXP(userId: string, amount: number): Promise<{ newXP: nu
         const newLevel = calculateLevel(newXP)
         const leveledUp = newLevel > currentLevel
 
-        // Update profile
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ total_xp: newXP, level: newLevel })
@@ -64,8 +75,7 @@ export async function addXP(userId: string, amount: number): Promise<{ newXP: nu
             return null
         }
 
-        console.log(`✅ XP awarded: +${amount} → Total: ${newXP} (Level ${newLevel})`)
-
+        console.log(`✅ XP awarded (fallback): +${amount} → Total: ${newXP} (Level ${newLevel})`)
         return { newXP, newLevel, leveledUp }
     } catch (err) {
         console.error('XP update error:', err)

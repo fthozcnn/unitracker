@@ -15,6 +15,11 @@ export function useBadgeCheck() {
 
         const checkBadges = async () => {
             try {
+                // F10: Throttle badge check — max once per 5 minutes
+                const lastCheck = localStorage.getItem('unitracker_last_badge_check')
+                const now = Date.now()
+                if (lastCheck && now - parseInt(lastCheck) < 5 * 60 * 1000) return
+                localStorage.setItem('unitracker_last_badge_check', String(now))
                 // 1. Get all badges
                 const { data: badges } = await supabase.from('badges').select('*')
                 if (!badges) return
@@ -27,14 +32,14 @@ export function useBadgeCheck() {
 
                 const earnedBadgeIds = earnedBadges?.map(eb => eb.badge_id) || []
 
-                // 3. Gather stats for criteria
+                // 3. Gather stats for criteria (F2: select only needed columns, F5: limit sessions)
                 const [sessionsRes, friendsRes, challengesRes, profileRes, coursesRes, assignmentsRes] = await Promise.all([
-                    supabase.from('study_sessions').select('*').eq('user_id', user.id).order('start_time', { ascending: false }),
+                    supabase.from('study_sessions').select('start_time, duration, course_id').eq('user_id', user.id).order('start_time', { ascending: false }).limit(5000),
                     supabase.from('friendships').select('id', { count: 'exact' }).eq('user_id', user.id).eq('status', 'accepted'),
                     supabase.from('challenge_participants').select('id', { count: 'exact' }).eq('user_id', user.id),
-                    supabase.from('profiles').select('*').eq('id', user.id).single(),
-                    supabase.from('courses').select('*, study_sessions(duration, start_time)').eq('user_id', user.id),
-                    supabase.from('assignments').select('*, courses(name)').eq('user_id', user.id)
+                    supabase.from('profiles').select('display_name, university, gpa').eq('id', user.id).single(),
+                    supabase.from('courses').select('id, absences, attendance_limit, syllabus').eq('user_id', user.id),
+                    supabase.from('assignments').select('title, type, due_date, is_completed, grade, course_id').eq('user_id', user.id)
                 ])
 
                 const sessions = sessionsRes.data || []

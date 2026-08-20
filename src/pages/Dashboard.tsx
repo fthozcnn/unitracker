@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, ListSkeleton, GridSkeleton, EmptyState } from '../components/ui-base'
-import * as Icons from 'lucide-react'
 import { Play, Calendar, BookOpen, TrendingUp, AlertCircle, Clock, Trophy, Medal, ShieldCheck, Target, GraduationCap, Wifi } from 'lucide-react'
+import { getBadgeIcon } from '../lib/badgeIcons'
 import { format, subDays, subMonths, eachDayOfInterval, differenceInDays } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { useBadgeCheck } from '../hooks/useBadgeCheck'
@@ -96,7 +96,7 @@ export default function Dashboard() {
 
             const map: Record<string, number> = {}
             data?.forEach((s: any) => {
-                const day = s.start_time.split('T')[0]
+                const day = format(new Date(s.start_time), 'yyyy-MM-dd')
                 map[day] = (map[day] || 0) + (s.duration || 0)
             })
             return map
@@ -148,7 +148,7 @@ export default function Dashboard() {
 
             if (!data || data.length === 0) return 0
 
-            const uniqueDates = Array.from(new Set(data.map((s: any) => s.start_time.split('T')[0])))
+            const uniqueDates = Array.from(new Set(data.map((s: any) => format(new Date(s.start_time), 'yyyy-MM-dd'))))
 
             const today = format(new Date(), 'yyyy-MM-dd')
             const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
@@ -211,23 +211,40 @@ export default function Dashboard() {
                 .lte('start_date', new Date().toISOString())
                 .limit(2)
 
-            if (error) return []
+            if (error || !challenges || challenges.length === 0) return []
 
-            const challengesWithProgress = await Promise.all((challenges || []).map(async (c) => {
-                let totalMinutes = 0
+            // F1: Single batched query instead of N+1
+            const allUserIds = new Set<string>()
+            let minDate = '', maxDate = ''
+            for (const c of challenges) {
                 if (c.is_group) {
                     const { data: participants } = await supabase.from('challenge_participants').select('user_id').eq('challenge_id', c.id)
-                    const pIds = participants?.map(p => p.user_id) || []
-                    const { data } = await supabase.from('study_sessions').select('duration').in('user_id', pIds).gte('start_time', c.start_date).lte('start_time', c.end_date)
-                    totalMinutes = data?.reduce((sum, s) => sum + s.duration, 0) || 0
+                    participants?.forEach(p => allUserIds.add(p.user_id))
                 } else {
-                    const { data } = await supabase.from('study_sessions').select('duration').eq('user_id', user?.id).gte('start_time', c.start_date).lte('start_time', c.end_date)
-                    totalMinutes = data?.reduce((sum, s) => sum + s.duration, 0) || 0
+                    allUserIds.add(user!.id)
                 }
-                return { ...c, current_hours: Math.round(totalMinutes / 60) }
-            }))
+                if (!minDate || c.start_date < minDate) minDate = c.start_date
+                if (!maxDate || c.end_date > maxDate) maxDate = c.end_date
+            }
 
-            return challengesWithProgress
+            const { data: allSessions } = await supabase
+                .from('study_sessions')
+                .select('user_id, duration, start_time')
+                .in('user_id', Array.from(allUserIds))
+                .gte('start_time', minDate)
+                .lte('start_time', maxDate)
+
+            const sessions = allSessions || []
+
+            return challenges.map(c => {
+                const pIds = c.is_group
+                    ? (c.challenge_participants?.map((p: any) => p.user_id) || [])
+                    : [user!.id]
+                const totalMinutes = sessions
+                    .filter(s => pIds.includes(s.user_id) && s.start_time >= c.start_date && s.start_time <= c.end_date)
+                    .reduce((sum, s) => sum + s.duration, 0)
+                return { ...c, current_hours: Math.round(totalMinutes / 60) }
+            })
         }
     })
 
@@ -361,7 +378,9 @@ export default function Dashboard() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {upcomingExams.map((exam: any) => {
-                            const daysLeft = differenceInDays(new Date(exam.due_date), new Date())
+                            const date1 = new Date(exam.due_date); date1.setHours(0,0,0,0);
+                            const date2 = new Date(); date2.setHours(0,0,0,0);
+                            const daysLeft = differenceInDays(date1, date2)
                             const isUrgent = daysLeft <= 3
                             const isWarning = daysLeft <= 7
                             return (
@@ -628,7 +647,7 @@ export default function Dashboard() {
                         ) : (
                             recentBadges?.map((item: any) => {
                                 const b = item.badges;
-                                const IconComponent = (Icons as any)[b.icon] || Icons.Medal;
+                                const IconComponent = getBadgeIcon(b.icon);
                                 return (
                                     <div key={b.id} className="group relative" title={b.name}>
                                         <div className={`p-4 rounded-xl bg-${b.color}-100 dark:bg-${b.color}-900/30 text-${b.color}-600 transition-transform group-hover:scale-110 shadow-sm border border-transparent hover:border-${b.color}-200`}>
@@ -663,7 +682,9 @@ export default function Dashboard() {
                             />
                         ) : (
                             upcomingAssignments?.map((item: any) => {
-                                const daysLeft = differenceInDays(new Date(item.due_date), new Date())
+                                const date1 = new Date(item.due_date); date1.setHours(0,0,0,0);
+                                const date2 = new Date(); date2.setHours(0,0,0,0);
+                                const daysLeft = differenceInDays(date1, date2)
                                 return (
                                     <div key={item.id} className="flex flex-col space-y-2 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all border-2 border-transparent hover:border-blue-50 dark:hover:border-blue-900/20 group">
                                         <div className="flex items-start space-x-3">
@@ -695,6 +716,7 @@ export default function Dashboard() {
                                                 )}
                                                 <div className="flex items-center text-[10px] font-black uppercase text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
                                                     <Clock className="w-3 h-3 mr-1" />
+                                                    {format(new Date(item.due_date), 'HH:mm')}
                                                 </div>
                                             </div>
                                         </div>

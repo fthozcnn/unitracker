@@ -190,17 +190,3 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
         return null
     }
 }
-
-// Legacy exports
-export const isPushNotificationSupported = isNotificationSupported
-export async function subscribeToPushNotifications(_userId: string): Promise<boolean> {
-    const permission = await requestNotificationPermission()
-    return permission === 'granted'
-}
-export async function unsubscribeFromPushNotifications(_userId: string): Promise<boolean> {
-    return true
-}
-export async function isSubscribedToPush(): Promise<boolean> {
-    const perm = await getNotificationPermission()
-    return perm === 'granted'
-}

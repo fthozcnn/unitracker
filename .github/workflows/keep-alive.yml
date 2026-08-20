@@ -1,0 +1,31 @@
+name: Supabase Keep Alive Bot
+
+on:
+  schedule:
+    # Her 3 günde bir gece 04:00 UTC'de (Türkiye saatiyle 07:00) otomatik çalışır
+    - cron: '0 4 */3 * *'
+  # GitHub panelinden "Run workflow" diyerek manuel olarak da test edilebilir
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase Database
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://czganctlxchjpxpzyjok.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_IC94zpsl2gez920YY9PfBQ_zLmMctHG' }}
+        run: |
+          echo "Supabase'e ping gönderiliyor..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/courses?select=id&limit=1")
+          
+          echo "HTTP Yanıt Kodu: $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Supabase başarıyla uyandırıldı / aktif tutuldu!"
+          else
+            echo "⚠️ Uyarı: Beklenmeyen durum kodu ($HTTP_STATUS). Proje URL ve anahtarlarını kontrol edin."
+          fi

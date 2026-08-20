@@ -62,17 +62,21 @@ export default function Analytics() {
                 .eq('user_id', user?.id)
                 .order('start_time', { ascending: false })
             if (!data || data.length === 0) return 0
-            const uniqueDates = Array.from(new Set(data.map(s => s.start_time.split('T')[0])))
+            const uniqueDates = Array.from(new Set(data.map(s => format(new Date(s.start_time), 'yyyy-MM-dd'))))
             let currentStreak = 0
-            const today = new Date().toISOString().split('T')[0]
-            const yesterday = subDays(new Date(), 1).toISOString().split('T')[0]
+            const today = format(new Date(), 'yyyy-MM-dd')
+            const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+            
             if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
                 currentStreak = 1
                 let checkDate = new Date(uniqueDates[0])
                 for (let i = 1; i < uniqueDates.length; i++) {
-                    checkDate.setDate(checkDate.getDate() - 1)
-                    if (uniqueDates[i] === checkDate.toISOString().split('T')[0]) currentStreak++
-                    else break
+                    const prevDate = subDays(checkDate, 1)
+                    const prevDateStr = format(prevDate, 'yyyy-MM-dd')
+                    if (uniqueDates[i] === prevDateStr) {
+                        currentStreak++
+                        checkDate = prevDate
+                    } else break
                 }
             }
             return currentStreak
@@ -88,7 +92,7 @@ export default function Analytics() {
         return days.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd')
             const total = sessions
-                .filter((s: any) => s.start_time.startsWith(dayStr))
+                .filter((s: any) => format(new Date(s.start_time), 'yyyy-MM-dd') === dayStr)
                 .reduce((acc: number, s: any) => acc + (s.duration || 0), 0)
             return {
                 name: period === 'week'
@@ -107,7 +111,7 @@ export default function Analytics() {
         return days.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd')
             const dayTotal = sessions
-                .filter((s: any) => s.start_time.startsWith(dayStr))
+                .filter((s: any) => format(new Date(s.start_time), 'yyyy-MM-dd') === dayStr)
                 .reduce((acc: number, s: any) => acc + (s.duration || 0), 0)
             cumTotal += dayTotal / 3600
             return {

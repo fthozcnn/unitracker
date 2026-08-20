@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Music, Youtube, Play, Pause, ExternalLink, X, Settings } from 'lucide-react'
+import { Music, Youtube, X } from 'lucide-react'
 import { Card, Button, Input } from './ui-base'
 import { clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
