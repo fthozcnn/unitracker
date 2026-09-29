@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Button, Card, Input } from '../components/ui-base'
-import { GraduationCap, LogIn, UserPlus, HelpCircle, Sparkles, Timer, Trophy, CalendarDays, ShieldCheck } from 'lucide-react'
+import { GraduationCap, LogIn, UserPlus, HelpCircle, Timer, Trophy, CalendarDays } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -20,6 +20,8 @@ export default function Login() {
     const [legalModalOpen, setLegalModalOpen] = useState(false)
     const [legalModalTab, setLegalModalTab] = useState<'privacy' | 'terms'>('privacy')
     const [faqModalOpen, setFaqModalOpen] = useState(false)
+    const [failedAttempts, setFailedAttempts] = useState(0)
+    const [cooldownRemaining, setCooldownRemaining] = useState(0)
 
     useDocumentTitle(isSignUp ? 'Kayıt Ol' : 'Giriş Yap', {
         description: 'UniMarmara ders takip ve çalışma platformuna giriş yapın veya yeni hesap oluşturun.'
@@ -31,6 +33,8 @@ export default function Login() {
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (cooldownRemaining > 0) return
+
         setLoading(true)
         setMessage('')
 
@@ -49,6 +53,7 @@ export default function Login() {
                 trackEvent(AnalyticsEvents.SIGN_UP, { method: 'email' })
                 setMessage('Kayıt başarılı! Şimdi giriş yapabilirsiniz.')
                 setIsSignUp(false)
+                setFailedAttempts(0)
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
                     email,
@@ -56,10 +61,30 @@ export default function Login() {
                 })
                 if (error) throw error
                 trackEvent(AnalyticsEvents.LOGIN, { method: 'email' })
+                setFailedAttempts(0)
             }
         } catch (error: any) {
+            const nextAttempts = failedAttempts + 1
+            setFailedAttempts(nextAttempts)
             const safe = handleSafeError(error, isSignUp ? 'Kayıt' : 'Giriş')
-            setMessage(safe.userMessage)
+
+            if (nextAttempts >= 5) {
+                setCooldownRemaining(30)
+                setMessage('Çok fazla başarısız deneme yapıldı. Güvenliğiniz için 30 saniye bekleniyor...')
+                const timer = setInterval(() => {
+                    setCooldownRemaining((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer)
+                            setFailedAttempts(0)
+                            setMessage('')
+                            return 0
+                        }
+                        return prev - 1
+                    })
+                }, 1000)
+            } else {
+                setMessage(safe.userMessage)
+            }
         } finally {
             setLoading(false)
         }
@@ -141,9 +166,11 @@ export default function Login() {
                     <Button
                         type="submit"
                         className="w-full h-11 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98]"
-                        disabled={loading}
+                        disabled={loading || cooldownRemaining > 0}
                     >
-                        {loading ? 'İşleniyor...' : (isSignUp ? 'Hemen Ücretsiz Kayıt Ol' : 'Giriş Yap')}
+                        {cooldownRemaining > 0
+                            ? `Lütfen bekleyin (${cooldownRemaining}s)`
+                            : (loading ? 'İşleniyor...' : (isSignUp ? 'Hemen Ücretsiz Kayıt Ol' : 'Giriş Yap'))}
                     </Button>
 
                     <p className="text-[11px] text-center text-slate-400 mt-3 leading-relaxed">

@@ -2,8 +2,8 @@ name: Supabase Keep Alive Bot
 
 on:
   schedule:
-    # Her 3 günde bir gece 04:00 UTC'de (Türkiye saatiyle 07:00) otomatik çalışır
-    - cron: '0 4 */3 * *'
+    # Her 2 günde bir gece 04:00 UTC'de (Türkiye saatiyle 07:00) otomatik çalışır
+    - cron: '0 4 */2 * *'
   # GitHub panelinden "Run workflow" diyerek manuel olarak da test edilebilir
   workflow_dispatch:
 
@@ -14,18 +14,23 @@ jobs:
     steps:
       - name: Ping Supabase REST API
         env:
-          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://czganctlxchjpxpzyjok.supabase.co' }}
-          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_IC94zpsl2gez920YY9PfBQ_zLmMctHG' }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: |
-          echo "Supabase'e ping gönderiliyor..."
+          # Eğer GitHub Secret tanımlı değilse varsayılan anon anahtar ve URL kullanılır
+          TARGET_URL="${SUPABASE_URL:-https://czganctlxchjpxpzyjok.supabase.co}"
+          TARGET_KEY="${SUPABASE_ANON_KEY:-sb_publishable_IC94zpsl2gez920YY9PfBQ_zLmMctHG}"
+
+          echo "Supabase'e ping gönderiliyor: $TARGET_URL"
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: $SUPABASE_ANON_KEY" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            "$SUPABASE_URL/rest/v1/courses?select=id&limit=1")
+            -H "apikey: $TARGET_KEY" \
+            -H "Authorization: Bearer $TARGET_KEY" \
+            "$TARGET_URL/rest/v1/courses?select=id&limit=1")
           
           echo "HTTP Yanıt Kodu: $HTTP_STATUS"
           if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
             echo "✅ Supabase başarıyla uyandırıldı / aktif tutuldu!"
           else
-            echo "⚠️ Uyarı: Beklenmeyen durum kodu ($HTTP_STATUS). Proje URL ve anahtarlarını kontrol edin."
+            echo "❌ Hata: Beklenmeyen durum kodu ($HTTP_STATUS). İstek başarısız!"
+            exit 1
           fi

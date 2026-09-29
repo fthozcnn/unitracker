@@ -59,9 +59,7 @@ export const AssignmentInputSchema = z.object({
     title: z.string().trim()
         .min(1, 'Görev başlığı zorunludur')
         .max(120, 'Başlık en fazla 120 karakter olabilir'),
-    type: z.enum(['exam', 'homework', 'project', 'quiz', 'review', 'other'], {
-        errorMap: () => ({ message: 'Geçersiz etkinlik türü' })
-    }),
+    type: z.enum(['exam', 'homework', 'project', 'quiz', 'review', 'other']),
     due_date: z.string().datetime({ message: 'Geçersiz teslim tarihi formatı' }),
     description: z.string().trim()
         .max(1000, 'Açıklama en fazla 1000 karakter olabilir')
@@ -78,9 +76,7 @@ export const AssignmentInputSchema = z.object({
 // 4. NOT HESAPLAMA (COURSE GRADE) ŞEMASI
 export const CourseGradeInputSchema = z.object({
     course_id: z.string().uuid('Geçersiz ders ID formatı'),
-    exam_type: z.enum(['vize', 'final', 'odev', 'quiz', 'proje'], {
-        errorMap: () => ({ message: 'Geçersiz sınav/değerlendirme türü' })
-    }),
+    exam_type: z.enum(['vize', 'final', 'odev', 'quiz', 'proje']),
     grade: z.number()
         .min(0, 'Sınav notu 0\'dan küçük olamaz')
         .max(100, 'Sınav notu 100\'den büyük olamaz'),
@@ -132,9 +128,7 @@ export const ChatMessageInputSchema = z.object({
 // 8. DÜRLME / TEBRİK REAKSİYON ŞEMASI
 export const SocialReactionSchema = z.object({
     target_user_id: z.string().uuid('Geçersiz hedef kullanıcı ID formatı'),
-    reaction_type: z.enum(['nudge', 'cheer'], {
-        errorMap: () => ({ message: 'Geçersiz tepki türü' })
-    })
+    reaction_type: z.enum(['nudge', 'cheer'])
 })
 
 /**
@@ -143,7 +137,7 @@ export const SocialReactionSchema = z.object({
 export function validatePayload<T>(schema: z.ZodSchema<T>, payload: unknown): { success: true; data: T } | { success: false; error: string } {
     const result = schema.safeParse(payload)
     if (!result.success) {
-        const errorMsg = result.error.errors.map(e => e.message).join(', ')
+        const errorMsg = result.error.issues ? result.error.issues.map((e: any) => e.message).join(', ') : 'Doğrulama hatası'
         return { success: false, error: errorMsg }
     }
     return { success: true, data: result.data }

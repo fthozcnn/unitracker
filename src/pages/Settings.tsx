@@ -13,6 +13,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import LegalModal from '../components/LegalModal'
 import FAQModal from '../components/FAQModal'
 import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
+import { handleSafeError } from '../lib/errorHandler'
 
 export default function Settings() {
     const { user, profile, refreshProfile } = useAuth()
@@ -55,8 +56,8 @@ export default function Settings() {
             await refreshProfile()
             alert('Profil güncellendi!')
         } catch (error) {
-            console.error('Error updating profile:', error)
-            alert('Hata oluştu.')
+            const safe = handleSafeError(error, 'Profil Güncelleme')
+            alert(safe.userMessage)
         } finally {
             setLoading(false)
         }
@@ -66,19 +67,23 @@ export default function Settings() {
         setLoading(true)
         try {
             // Fetch all user data
-            const [courses, sessions, assignments] = await Promise.all([
+            const [courses, sessions, assignments, schedule, grades] = await Promise.all([
                 supabase.from('courses').select('*').eq('user_id', user?.id),
                 supabase.from('study_sessions').select('*').eq('user_id', user?.id),
-                supabase.from('assignments').select('*').eq('user_id', user?.id)
+                supabase.from('assignments').select('*').eq('user_id', user?.id),
+                supabase.from('weekly_schedule').select('*').eq('user_id', user?.id),
+                supabase.from('course_grades').select('*').eq('course_id', user?.id)
             ])
 
             const backup = {
                 timestamp: new Date().toISOString(),
                 user_email: user?.email,
                 data: {
-                    courses: courses.data,
-                    study_sessions: sessions.data,
-                    assignments: assignments.data
+                    courses: courses.data || [],
+                    study_sessions: sessions.data || [],
+                    assignments: assignments.data || [],
+                    weekly_schedule: schedule.data || [],
+                    course_grades: grades.data || []
                 }
             }
 
@@ -92,8 +97,8 @@ export default function Settings() {
             document.body.removeChild(a)
             URL.revokeObjectURL(url)
         } catch (error) {
-            console.error('Export error:', error)
-            alert('Yedekleme sırasında hata oluştu.')
+            const safe = handleSafeError(error, 'Veri Dışa Aktarma')
+            alert(safe.userMessage)
         } finally {
             setLoading(false)
         }
@@ -120,7 +125,7 @@ export default function Settings() {
                 return
             }
 
-            const { courses: importCourses, study_sessions: importSessions, assignments: importAssignments } = backup.data
+            const { courses: importCourses, study_sessions: importSessions, assignments: importAssignments, weekly_schedule: importSchedule } = backup.data
 
             // Track old → new course ID mapping
             const courseIdMap: Record<string, string> = {}
@@ -167,11 +172,24 @@ export default function Settings() {
                 await supabase.from('assignments').insert(mappedAssignments)
             }
 
-            const totalImported = (importCourses?.length || 0) + (importSessions?.length || 0) + (importAssignments?.length || 0)
-            alert(`✅ Veri yükleme başarılı!\n\n${importCourses?.length || 0} ders\n${importSessions?.length || 0} çalışma oturumu\n${importAssignments?.length || 0} görev/sınav\n\nToplam ${totalImported} kayıt yüklendi.`)
+            // Import weekly schedule with mapped course IDs
+            if (importSchedule?.length > 0) {
+                const mappedSchedule = importSchedule.map((sc: any) => {
+                    const { id, created_at, ...scheduleData } = sc
+                    return {
+                        ...scheduleData,
+                        user_id: user.id,
+                        course_id: courseIdMap[sc.course_id] || sc.course_id
+                    }
+                })
+                await supabase.from('weekly_schedule').insert(mappedSchedule)
+            }
+
+            const totalImported = (importCourses?.length || 0) + (importSessions?.length || 0) + (importAssignments?.length || 0) + (importSchedule?.length || 0)
+            alert(`✅ Veri yükleme başarılı!\n\n${importCourses?.length || 0} ders\n${importSessions?.length || 0} çalışma oturumu\n${importAssignments?.length || 0} görev/sınav\n${importSchedule?.length || 0} ders programı kaydı\n\nToplam ${totalImported} kayıt yüklendi.`)
         } catch (error) {
-            console.error('Import error:', error)
-            alert('Veri yükleme sırasında hata oluştu. Dosya formatını kontrol edin.')
+            const safe = handleSafeError(error, 'Veri İçe Aktarma')
+            alert(safe.userMessage)
         } finally {
             setLoading(false)
             e.target.value = '' // Reset file input
@@ -205,18 +223,13 @@ export default function Settings() {
             // Use RPC function that runs as SECURITY DEFINER to bypass RLS
             const { error } = await supabase.rpc('reset_user_progress')
 
-            if (error) {
-                console.error('Reset error:', error.message, error.details)
-                alert('⚠️ Sıfırlama hatası: ' + error.message)
-            } else {
-                alert('✅ İlerleme başarıyla sıfırlandı! Sayfa yenilenecek.')
-            }
+            if (error) throw error
 
-            // Force full page reload to clear all cached data
+            alert('✅ İlerleme başarıyla sıfırlandı! Sayfa yenilenecek.')
             window.location.reload()
         } catch (error) {
-            console.error('Reset error:', error)
-            alert('Sıfırlama sırasında hata oluştu.')
+            const safe = handleSafeError(error, 'İlerleme Sıfırlama')
+            alert(`⚠️ ${safe.userMessage}`)
         } finally {
             setLoading(false)
         }
@@ -487,17 +500,14 @@ export default function Settings() {
                             try {
                                 const { error } = await supabase.rpc('delete_user_account')
 
-                                if (error) {
-                                    console.error('Account deletion error:', error.message, error.details)
-                                    alert('⚠️ Hesap silinirken bir hata oluştu: ' + error.message)
-                                } else {
-                                    alert('✅ Hesabınız başarıyla silindi. Hoşçakalın!')
-                                    await supabase.auth.signOut()
-                                    window.location.href = '/' // Force redirect
-                                }
+                                if (error) throw error
+
+                                alert('✅ Hesabınız başarıyla silindi. Hoşçakalın!')
+                                await supabase.auth.signOut()
+                                window.location.href = '/' // Force redirect
                             } catch (error) {
-                                console.error('Account deletion error:', error)
-                                alert('Hesap silme işlemi sırasında beklenmeyen bir hata oluştu.')
+                                const safe = handleSafeError(error, 'Hesap Silme')
+                                alert(`⚠️ ${safe.userMessage}`)
                             } finally {
                                 setLoading(false)
                             }

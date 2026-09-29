@@ -18,6 +18,7 @@ import AddAssignmentModal, { EVENT_TYPES } from '../components/AddAssignmentModa
 import clsx from 'clsx'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
+import { handleSafeError } from '../lib/errorHandler'
 
 type Assignment = {
     id: string
@@ -178,7 +179,8 @@ export default function CalendarPage() {
             setShareSuccess('Etkinlik paylaşıldı! ✅')
             setTimeout(() => { setSharingEvent(null); setShareSuccess(''); setSelectedFriendId('') }, 1500)
         } catch (err: any) {
-            alert(err.message || 'Paylaşım hatası')
+            const safe = handleSafeError(err, 'Etkinlik Paylaşma')
+            alert(safe.userMessage)
         } finally {
             setShareLoading(false)
         }
@@ -205,7 +207,8 @@ export default function CalendarPage() {
             setAcceptingShare(null)
             setAcceptCourseId('')
         } catch (err: any) {
-            alert(err.message || 'Kabul hatası')
+            const safe = handleSafeError(err, 'Etkinlik Kabul Etme')
+            alert(safe.userMessage)
         } finally {
             setAcceptLoading(false)
         }
@@ -440,7 +443,8 @@ export default function CalendarPage() {
                     alert(`❌ Hiçbir etkinlik aktarılamadı.\n\n${errors.slice(0, 5).join('\n')}\n\nŞablonu indirerek doğru formatı kontrol edin.`)
                 }
             } catch (err: any) {
-                alert('Dosya okunamadı: ' + (err.message || 'Bilinmeyen hata'))
+                const safe = handleSafeError(err, 'Etkinlik CSV İçe Aktarma')
+                alert(`❌ ${safe.userMessage}`)
             }
             e.target.value = ''
         }

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { Button, Card, Input } from '../components/ui-base'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { handleSafeError } from '../lib/errorHandler'
 
 const EXAM_TYPES = [
     { id: 'vize', label: 'Vize', defaultWeight: 40 },
@@ -111,7 +112,8 @@ export default function Grades() {
             setShareSuccess(true)
             setTimeout(() => { setSharingCourse(null); setShareSuccess(false); setSelectedFriendId('') }, 1500)
         } catch (err: any) {
-            alert(err.message || 'Paylaşım hatası')
+            const safe = handleSafeError(err, 'Ders Paylaşma')
+            alert(safe.userMessage)
         } finally {
             setShareLoading(false)
         }
@@ -136,7 +138,8 @@ export default function Grades() {
             queryClient.invalidateQueries({ queryKey: ['incoming_course_shares'] })
             setAcceptingCourseShare(null)
         } catch (err: any) {
-            alert(err.message || 'Ekleme hatası')
+            const safe = handleSafeError(err, 'Ders Kabul Etme')
+            alert(safe.userMessage)
         } finally {
             setAcceptLoading(false)
         }

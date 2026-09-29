@@ -37,7 +37,7 @@ export function useBadgeCheck() {
                     supabase.from('study_sessions').select('start_time, duration, course_id').eq('user_id', user.id).order('start_time', { ascending: false }).limit(5000),
                     supabase.from('friendships').select('id', { count: 'exact' }).eq('user_id', user.id).eq('status', 'accepted'),
                     supabase.from('challenge_participants').select('id', { count: 'exact' }).eq('user_id', user.id),
-                    supabase.from('profiles').select('display_name, university, gpa').eq('id', user.id).single(),
+                    supabase.from('profiles').select('display_name').eq('id', user.id).single(),
                     supabase.from('courses').select('id, absences, attendance_limit, syllabus').eq('user_id', user.id),
                     supabase.from('assignments').select('title, type, due_date, is_completed, grade, course_id').eq('user_id', user.id)
                 ])

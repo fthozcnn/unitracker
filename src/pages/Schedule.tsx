@@ -8,6 +8,7 @@ import { Menu, Transition } from '@headlessui/react'
 import CourseModal from '../components/CourseModal'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { validateUploadedFile, FILE_LIMITS } from '../lib/fileValidation'
+import { handleSafeError } from '../lib/errorHandler'
 
 const DAYS = [
     { id: 1, name: 'Pazartesi', aliases: ['pazartesi', 'pzt'] },
@@ -115,7 +116,8 @@ export default function Schedule() {
                 .eq('user_id', user?.id)
 
             if (fetchError) {
-                alert('Ders listesi alınırken hata oluştu: ' + fetchError.message)
+                const safe = handleSafeError(fetchError, 'Ders Listesi Alma')
+                alert(`❌ ${safe.userMessage}`)
                 setUploadLoading(false)
                 return
             }
@@ -165,7 +167,8 @@ export default function Schedule() {
                     .select()
 
                 if (courseError) {
-                    alert('Yeni dersler oluşturulurken hata oluştu: ' + courseError.message)
+                    const safe = handleSafeError(courseError, 'Yeni Ders Oluşturma')
+                    alert(`❌ ${safe.userMessage}`)
                     setUploadLoading(false)
                     return
                 }
@@ -205,7 +208,8 @@ export default function Schedule() {
             if (newEntries.length > 0) {
                 const { error: scheduleError } = await supabase.from('weekly_schedule').insert(newEntries)
                 if (scheduleError) {
-                    alert('Ders programı kaydedilirken hata oluştu: ' + scheduleError.message)
+                    const safe = handleSafeError(scheduleError, 'Ders Programı Kaydetme')
+                    alert(`❌ ${safe.userMessage}`)
                 } else {
                     queryClient.invalidateQueries({ queryKey: ['schedule'] })
                     const errMsg = errors.length > 0 ? `\n\n⚠️ Atlanan satırlar:\n${errors.slice(0, 5).join('\n')}` : ''

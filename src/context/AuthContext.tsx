@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fetchProfile = async (userId: string) => {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, email, display_name, avatar_url, bio, total_xp, level, university, gpa')
+            .select('id, email, display_name, avatar_url, bio, total_xp, level')
             .eq('id', userId)
             .single()
 
@@ -41,17 +41,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     useEffect(() => {
+        let mounted = true
+
+        // Safety timeout in case network or Supabase is paused / unresponsive
+        const timeoutId = setTimeout(() => {
+            if (mounted && loading) {
+                console.warn('Auth session check timed out - Supabase may be paused or offline.')
+                setLoading(false)
+            }
+        }, 5000)
+
         supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!mounted) return
             setSession(session)
             if (session?.user) {
                 fetchProfile(session.user.id)
             }
             setLoading(false)
+        }).catch((err) => {
+            console.error('Failed to get auth session:', err)
+            if (mounted) {
+                setLoading(false)
+            }
         })
 
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (!mounted) return
             setSession(session)
             if (session?.user) {
                 fetchProfile(session.user.id)
@@ -61,7 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
         })
 
-        return () => subscription.unsubscribe()
+        return () => {
+            mounted = false
+            clearTimeout(timeoutId)
+            subscription.unsubscribe()
+        }
     }, [])
 
     const signOut = async () => {

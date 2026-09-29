@@ -46,12 +46,16 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
     })
 
     // 2. Kimlik Doğrulama Hataları (Kullanıcı Sayımı / User Enumeration Önleme)
+    const errCode = (rawError?.code || '').toLowerCase()
+    const errStatus = Number(rawError?.status || 0)
+
     if (
         rawMessage.includes('invalid login credentials') ||
         rawMessage.includes('invalid_grant') ||
         rawMessage.includes('user not found') ||
         rawMessage.includes('wrong password') ||
-        rawMessage.includes('invalid credentials')
+        rawMessage.includes('invalid credentials') ||
+        errCode === 'invalid_credentials'
     ) {
         return {
             errorCode,
@@ -60,7 +64,19 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
         }
     }
 
-    if (rawMessage.includes('user already registered') || rawMessage.includes('already exists')) {
+    if (
+        rawMessage.includes('email not confirmed') ||
+        rawMessage.includes('email_not_confirmed') ||
+        errCode === 'email_not_confirmed'
+    ) {
+        return {
+            errorCode,
+            userMessage: 'E-posta adresiniz henüz onaylanmamış. Lütfen gelen kutunuzdaki doğrulama linkine tıklayın.',
+            isAuthError: true
+        }
+    }
+
+    if (rawMessage.includes('user already registered') || rawMessage.includes('already exists') || errCode === 'user_already_exists') {
         return {
             errorCode,
             userMessage: 'Bu e-posta adresiyle kayıtlı bir hesap bulunmaktadır.',
@@ -68,7 +84,7 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
         }
     }
 
-    if (rawMessage.includes('rate limit') || rawMessage.includes('too many requests')) {
+    if (rawMessage.includes('rate limit') || rawMessage.includes('too many requests') || errStatus === 429 || errCode === 'over_request_rate_limit') {
         return {
             errorCode,
             userMessage: 'Çok fazla deneme yaptınız. Lütfen birkaç dakika bekleyip tekrar deneyin.',
@@ -77,14 +93,40 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
     }
 
     // 3. Ağ & Bağlantı Hataları
-    if (rawMessage.includes('failed to fetch') || rawMessage.includes('network') || rawMessage.includes('offline')) {
+    if (
+        rawMessage.includes('failed to fetch') ||
+        rawMessage.includes('network') ||
+        rawMessage.includes('offline') ||
+        rawMessage.includes('load failed') ||
+        rawMessage.includes('abort') ||
+        rawMessage.includes('timeout')
+    ) {
         return {
             errorCode,
             userMessage: 'Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.'
         }
     }
 
-    // 4. Yetkilendirme & RLS Hataları
+    // 4. Sunucu Başlatılma / Geçici Uyku Hataları (Supabase Unpause Dönemi)
+    if (
+        errStatus === 500 ||
+        errStatus === 502 ||
+        errStatus === 503 ||
+        errStatus === 504 ||
+        rawMessage.includes('database error') ||
+        rawMessage.includes('internal server error') ||
+        rawMessage.includes('service unavailable') ||
+        rawMessage.includes('bad gateway') ||
+        rawMessage.includes('gateway timeout') ||
+        rawMessage.includes('connection refused')
+    ) {
+        return {
+            errorCode,
+            userMessage: 'Veritabanı sunucusu uyandırılıyor veya geçici olarak meşgul. Lütfen 15-30 saniye bekleyip tekrar deneyin.'
+        }
+    }
+
+    // 5. Yetkilendirme & RLS Hataları
     if (rawMessage.includes('row-level security') || rawMessage.includes('permission denied') || rawMessage.includes('forbidden') || rawMessage.includes('42501')) {
         return {
             errorCode,
@@ -92,7 +134,7 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
         }
     }
 
-    // 5. Doğrulama ve Kısıt Hataları
+    // 6. Doğrulama ve Kısıt Hataları
     if (rawMessage.includes('violates check constraint') || rawMessage.includes('invalid input')) {
         return {
             errorCode,
@@ -100,7 +142,7 @@ export function handleSafeError(error: unknown, contextDescription?: string): Sa
         }
     }
 
-    // 6. Varsayılan Güvenli Hata Mesajı (Teknik Sızıntı Yapmaz)
+    // 7. Varsayılan Güvenli Hata Mesajı (Teknik Sızıntı Yapmaz)
     return {
         errorCode,
         userMessage: `İşlem sırasında beklenmeyen bir hata oluştu. Sorun devam ederse lütfen "${errorCode}" referans kodu ile destek ekibine iletin.`

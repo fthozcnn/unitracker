@@ -24,4 +24,8 @@ dist-ssr
 *.sw?
 
 .vercel
+.env
+.env.*
 .env*.local
+*.pem
+*.key

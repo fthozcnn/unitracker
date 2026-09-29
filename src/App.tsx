@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useSupabasePing } from './hooks/useSupabasePing'
 import AnalyticsTracker from './components/AnalyticsTracker'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // Lazy-loaded pages for code-splitting (F3)
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -33,10 +34,22 @@ const queryClient = new QueryClient({
     },
 })
 
+function LoadingScreen() {
+    return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
+            <div className="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4" />
+            <p className="text-sm font-medium text-slate-300">Yükleniyor...</p>
+            <p className="text-xs text-slate-500 mt-2 text-center max-w-xs">
+                Sunucu bağlantısı kuruluyor. Uzun sürerse Supabase duraklatılmış olabilir.
+            </p>
+        </div>
+    )
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { session, loading } = useAuth()
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>
+    if (loading) return <LoadingScreen />
 
     if (!session) {
         return <Navigate to="/login" replace />
@@ -56,39 +69,41 @@ function PingManager() {
 
 export default function App() {
     return (
-        <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-                <PingManager />
-                <BrowserRouter>
-                    <AnalyticsTracker />
-                    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Yükleniyor...</div>}>
-                        <Routes>
-                            <Route path="/login" element={<Login />} />
-                            <Route path="/privacy" element={<Legal defaultTab="privacy" />} />
-                            <Route path="/terms" element={<Legal defaultTab="terms" />} />
-                            <Route path="/legal" element={<Legal />} />
-                            <Route path="/" element={
-                                <ProtectedRoute>
-                                    <Layout />
-                                </ProtectedRoute>
-                            }>
-                                <Route index element={<Dashboard />} />
-                                <Route path="badges" element={<Badges />} />
-                                <Route path="schedule" element={<Schedule />} />
-                                <Route path="attendance" element={<Attendance />} />
-                                <Route path="grades" element={<Grades />} />
-                                <Route path="courses/:id" element={<CourseDetail />} />
-                                <Route path="study" element={<Study />} />
-                                <Route path="calendar" element={<CalendarPage />} />
-                                <Route path="analytics" element={<Analytics />} />
-                                <Route path="settings" element={<Settings />} />
-                                <Route path="social" element={<Social />} />
-                            </Route>
-                            <Route path="*" element={<NotFound />} />
-                        </Routes>
-                    </Suspense>
-                </BrowserRouter>
-            </AuthProvider>
-        </QueryClientProvider>
+        <ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+                <AuthProvider>
+                    <PingManager />
+                    <BrowserRouter>
+                        <AnalyticsTracker />
+                        <Suspense fallback={<LoadingScreen />}>
+                            <Routes>
+                                <Route path="/login" element={<Login />} />
+                                <Route path="/privacy" element={<Legal defaultTab="privacy" />} />
+                                <Route path="/terms" element={<Legal defaultTab="terms" />} />
+                                <Route path="/legal" element={<Legal />} />
+                                <Route path="/" element={
+                                    <ProtectedRoute>
+                                        <Layout />
+                                    </ProtectedRoute>
+                                }>
+                                    <Route index element={<Dashboard />} />
+                                    <Route path="badges" element={<Badges />} />
+                                    <Route path="schedule" element={<Schedule />} />
+                                    <Route path="attendance" element={<Attendance />} />
+                                    <Route path="grades" element={<Grades />} />
+                                    <Route path="courses/:id" element={<CourseDetail />} />
+                                    <Route path="study" element={<Study />} />
+                                    <Route path="calendar" element={<CalendarPage />} />
+                                    <Route path="analytics" element={<Analytics />} />
+                                    <Route path="settings" element={<Settings />} />
+                                    <Route path="social" element={<Social />} />
+                                </Route>
+                                <Route path="*" element={<NotFound />} />
+                            </Routes>
+                        </Suspense>
+                    </BrowserRouter>
+                </AuthProvider>
+            </QueryClientProvider>
+        </ErrorBoundary>
     )
 }

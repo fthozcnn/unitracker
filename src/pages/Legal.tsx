@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Shield, FileText, ArrowLeft, CheckCircle, Lock, Eye, Database, Trash2, Home } from 'lucide-react'
+import { Shield, FileText, ArrowLeft, CheckCircle, Lock, Eye, Database, Trash2 } from 'lucide-react'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 interface LegalProps {

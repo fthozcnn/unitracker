@@ -102,7 +102,7 @@ export default function Layout() {
                     <div className="mt-auto pt-6 border-t border-gray-100 dark:border-gray-800">
                         <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer group">
                             <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm border-2 border-white dark:border-gray-700 shadow-sm">
-                                {profile?.display_name ? profile.display_name[0].toUpperCase() : user?.email?.[0].toUpperCase()}
+                                {(profile?.display_name || user?.email || 'U')[0]?.toUpperCase() || 'U'}
                             </div>
                             <div className="ml-3 overflow-hidden flex-1">
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
